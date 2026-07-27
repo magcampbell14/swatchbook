@@ -47,8 +47,15 @@ All three must stay:
 ## 4. Paths must stay relative (`./`) — served from a Pages SUBDIRECTORY
 This is hosted at `https://<user>.github.io/<repo>/`, not a domain root. Any absolute
 path starting with `/` will 404. Manifest link, service-worker registration, icon links,
-and `start_url` / `scope` inside `manifest.json` all use `./`. Script/data paths
-(`data/…`, `src/…`) are document-relative — keep them that way.
+and `start_url` / `scope` inside `manifest.json` all use `./`. Script/data paths are
+document-relative — keep them that way.
+
+## 4b. FLAT FILE STRUCTURE — no subfolders, ever
+Every file sits at the top level. There is NO `src/` and NO `data/` folder.
+This is deliberate and must not be "tidied up": deployment happens by dragging files
+from the iPadOS Files app into GitHub's web uploader, and iPadOS Safari CANNOT upload
+folders — a folder drag silently delivers nothing. Any future export must keep all
+JS/JSX/data files flat alongside `index.html`.
 
 ## 5. Local / pinned assets only (offline rule)
 Everything must be local or a pinned CDN URL that `sw.js` precaches: React +
