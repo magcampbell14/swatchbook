@@ -8,12 +8,13 @@ The user's saved work lives entirely in these keys. A renamed key = silent data 
 
 - `cq-saved` — **Saved palettes** (the critical one — protect above all else).
 - `cq-saved-ideas` — Saved idea cards.
-- `cq-pages` — Saved reference pages / uploads.
+- `cq-pages` — Pages (coloring pages / sketches + their fills). Shape in §2c.
 - `cq-favs` — Favorited prompts.
 - `cq-stock` — Per-color running-low / out flags: `{ [uid]: "low" | "out" }`.
 - Plus builder/UI state keys, all prefixed `cq-` (`cq-tab`, `cq-pal-mode`, `cq-b-*`,
   `cq-builder-*`, `cq-bridge-*`, `cq-grad-steps`, `cq-prompt`, `cq-ask-*`, `cq-studio-*`,
-  `cq-learn-tab`). Backup/restore snapshots **every `cq-` key**.
+  `cq-learn-tab`). Backup/restore snapshots **every `cq-` key** (Palettes tab → Backup).
+- v2 UI-only state uses `sb-` keys (`sb-tab`, `sb-mk-filter`) — not backed up, safe to lose.
 
 Backup envelope shape (keep stable): `{ app:"swatchbook", v:1, exportedAt, keys:{...} }`.
 
@@ -21,7 +22,7 @@ Backup envelope shape (keep stable): `{ app:"swatchbook", v:1, exportedAt, keys:
 ```js
 {
   name: "dusty lagoon",              // user-facing name (older items may use `label`)
-  kind: "Built" | "Blend" | "Gradient",
+  kind: "Built" | "Blend" | "Gradient" | "Photo" | "Page",
   note: "golden · complementary · 6",
   colors: [                          // ordered swatches
     { marker: { uid, code, name, hex, setName, type }, role: "shadow" } // role may be ""
@@ -30,6 +31,18 @@ Backup envelope shape (keep stable): `{ app:"swatchbook", v:1, exportedAt, keys:
   ts: 1700000000000                  // Date.now(); also the React list key
 }
 ```
+
+## 2c. Page shape (`cq-pages` = array)
+```js
+{ id, name, img /* JPEG data URL, ≤1100px */, w, h, tol,
+  fill,              // PNG cache of the ACTIVE version's fill layer (thumbnail only — can be "")
+  versions: [ { id, name, history:[{x,y,uid,tol}], tray:[uid], active:uid|null, star:bool } ],
+  ver,               // index of the active version
+  history, tray, active,   // mirror of the active version (kept for older code paths)
+  createdAt, updatedAt }
+```
+Pages saved before v2 have no `versions`; `migrate()` in sb-pages.jsx turns their
+history/tray into version "V1" in memory. Fills are always rebuilt by replaying `history`.
 
 ## 2b. Marker ids (uid) — never change a color's `key`, a set `id`, or a `code` without a `key`
 Every color's saved-data id is `setId:(key || code)` (built in `cq-ui.jsx`). Saved palettes,
@@ -47,6 +60,7 @@ the palette signature, and `cq-stock` flags all point at that uid.
 These fix a real iOS Safari bug where the bottom of a screen sat under the fixed bottom
 nav and rubber-banded back (content was reachable only as a "peek", not a full scroll).
 All three must stay:
+- v2 classes: `.app`, `.sb-sheet` / `.sb-sheet-body`, `.sb-editor`, `.sb-colormode` carry these.
 - **`dvh`** on `.app` (`min-height:100dvh`) and on `.sheet` / `.picker-scroll`
   (`max-height` in `dvh`). `100vh` on iOS is the *toolbar-hidden* height and overshoots;
   `dvh` tracks the real visible viewport. Keep the `vh` line above each `dvh` line as the
@@ -62,16 +76,14 @@ path starting with `/` will 404. Manifest link, service-worker registration, ico
 and `start_url` / `scope` inside `manifest.json` all use `./`. Script/data paths are
 document-relative — keep them that way.
 
-## 4b. FLAT FILE STRUCTURE — no subfolders, ever
-Every file sits at the top level. There is NO `src/` and NO `data/` folder.
-This is deliberate and must not be "tidied up": deployment happens by dragging files
-from the iPadOS Files app into GitHub's web uploader, and iPadOS Safari CANNOT upload
-folders — a folder drag silently delivers nothing. Any future export must keep all
-JS/JSX/data files flat alongside `index.html`.
+## 4b. FLAT FILE STRUCTURE — no subfolders
+Every file sits at the top level. Updates are now pushed directly from Claude Code, but
+staying flat keeps the iPad drag-and-drop upload working as a fallback (iPadOS Safari
+cannot upload folders).
 
 ## 5. Local / pinned assets only (offline rule)
 Everything must be local or a pinned CDN URL that `sw.js` precaches: React +
-ReactDOM **production** builds and Babel at the exact pinned versions, plus the Fredoka
+ReactDOM **production** builds and Babel at the exact pinned versions, plus the Fredoka + Inter
 Google Fonts stylesheet. No un-cached external fetches or offline mode breaks. If you
 bump a CDN version, update the `PRECACHE` list in `sw.js` to match.
 
@@ -79,3 +91,16 @@ bump a CDN version, update the `PRECACHE` list in `sw.js` to match.
 As of Nov 2026 the GitHub repo (magcampbell14/swatchbook) IS the source. Edit these files
 directly (Claude Code). The older Claude Design project ("Swatch Book.html") is out of date —
 don't export from it over the top of this repo, or the audit is lost.
+
+## 7. v2 structure (Nov 2026 redesign)
+Three tabs: **Pages** (home) · **Markers** · **Palettes**. Loaded files:
+`inventory.js`, `cq-engine.js`, `cq-ui.jsx` (storage, merged inventory, codeLabel/hexOf),
+then `sb-core.jsx` (marker groups, stock, shading recs, harmony recolor, photo palette,
+shared UI), `sb-pages.jsx`, `sb-markers.jsx`, `sb-palettes.jsx`; the App shell is inline in
+`index.html`. Each `sb-*.jsx` is wrapped in an IIFE (babel scripts share one global scope).
+- Same-ink grouping: Ohuhu markers with the same `code` are ONE ink across sets (×2 badge);
+  SFAIH inks are separate even when codes match.
+- Design rule from Maggie: no beginner tips or reminders of basics (e.g. acrylic highlights).
+- SHELVED, not deleted (code + their saved data kept): Prompts, Studio, Learn and the v1
+  screens — `cq-ask.jsx`, `cq-learn.jsx`, `cq-studio.jsx`, `cq-screens.jsx`,
+  `cq-palettes.jsx`, `cq-pages.jsx`, `cq-sketch.js`, `prompts.js`, `mixing.js`.

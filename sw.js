@@ -10,7 +10,7 @@
  *
  * Bump CACHE_VERSION only if you ever want to force-purge every phone's cache.
  */
-const CACHE_VERSION = "swatchbook-v1";
+const CACHE_VERSION = "swatchbook-v2";
 
 // Shell precached on install so the very first offline launch works.
 const PRECACHE = [
@@ -21,21 +21,16 @@ const PRECACHE = [
   "icon-192.png",
   "icon-512.png",
   "inventory.js",
-  "prompts.js",
-  "mixing.js",
   "cq-engine.js",
-  "cq-sketch.js",
   "cq-ui.jsx",
-  "cq-ask.jsx",
-  "cq-learn.jsx",
-  "cq-studio.jsx",
-  "cq-pages.jsx",
-  "cq-screens.jsx",
-  "cq-palettes.jsx",
+  "sb-core.jsx",
+  "sb-pages.jsx",
+  "sb-markers.jsx",
+  "sb-palettes.jsx",
   "https://unpkg.com/react@18.3.1/umd/react.production.min.js",
   "https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js",
   "https://unpkg.com/@babel/standalone@7.29.0/babel.min.js",
-  "https://fonts.googleapis.com/css2?family=Fredoka:wght@300;400;500;600;700&display=swap"
+  "https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&family=Inter:wght@400;500;600&display=swap"
 ];
 
 self.addEventListener("install", (e) => {
