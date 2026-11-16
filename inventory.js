@@ -142,7 +142,7 @@ window.SETS = [
       { code:"GG12", old:"BG070", name:"Pastel Icy Grey", oldName:"Cool Grey 07", hex:"#aab4c8" },
     ] },
 
-  // ---- SFAIH Pastel 51 (51 colors + blender) ----
+  // ---- SFAIH Pastel 51 (50 colors + blender) ----
   // SFAIH caps use the same codes/names as Ohuhu's PRE-2025 codes, so `old` is the code
   // printed on the cap and `code` is the matching Ohuhu 2025 code. oldName = SFAIH cap name.
   { id: "sfaih", name: "SFAIH Pastel 51", short: "SFAIH Pastel", type: "alcohol",
@@ -195,7 +195,6 @@ window.SETS = [
       { code:"CG28", old:"CG070", name:"Web Grey", oldName:"Neutral Grey 07", hex:"#909494", key:"CG070" },
       { code:"BGY00", old:"BG050", name:"Cashmere Grey", oldName:"Cool Grey 05", hex:"#d0d8d9" },
       { code:"E92", old:"E380", name:"Ash Rose", hex:"#ddccc6" },
-      { code:"B03", old:"B030", name:"Frost", oldName:"Frost Blue", hex:"#bedbe5" },
       { code:"YGY13", old:"WG050", name:"Oyster Grey", oldName:"Warm Grey 05", hex:"#d5d2c8" },
       { code:"E85", old:"E050", name:"Cherry Taupe", oldName:"Natural Lipstick", hex:"#c38379" },
       { code:"V32", old:"V322", name:"Icy Periwinkle", hex:"#dae4f1" },
