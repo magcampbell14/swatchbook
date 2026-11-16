@@ -193,11 +193,11 @@ window.SETS = [
       { code:"CG01", old:"CG020", name:"Cloud Grey", oldName:"Neutral Grey 02", hex:"#dadcdc", key:"CG020" },
       { code:"CG24", old:"CG050", name:"Grey", oldName:"Neutral Grey 05", hex:"#b0b4b4", key:"CG050" },
       { code:"CG28", old:"CG070", name:"Web Grey", oldName:"Neutral Grey 07", hex:"#909494", key:"CG070" },
-      { code:"BGY00", old:"BG050", name:"Cashmere Grey", oldName:"Cool Grey 05", hex:"#d0d8d9" },
       { code:"E92", old:"E380", name:"Ash Rose", hex:"#ddccc6" },
+      { code:"YR43", old:"R080", name:"Pale Cherry Pink", hex:"#fcdbcf" },
+      { code:"BG24", old:"G420", name:"Sea Glass Blue", oldName:"Green Shadow", hex:"#bde1cd" },
       { code:"YGY13", old:"WG050", name:"Oyster Grey", oldName:"Warm Grey 05", hex:"#d5d2c8" },
-      { code:"E85", old:"E050", name:"Cherry Taupe", oldName:"Natural Lipstick", hex:"#c38379" },
-      { code:"V32", old:"V322", name:"Icy Periwinkle", hex:"#dae4f1" },
+      { code:"E85", old:"E050", name:"Cherry Taupe", oldName:"Lipstick Natural", hex:"#c38379" },
     ] },
 
   // ---- Ohuhu Honolulu 104 Expansion (104) ----
