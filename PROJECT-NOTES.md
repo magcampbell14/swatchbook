@@ -36,9 +36,9 @@ Every color's saved-data id is `setId:(key || code)` (built in `cq-ui.jsx`). Sav
 the palette signature, and `cq-stock` flags all point at that uid.
 - Nov 2026 audit: each color now has `code` (2025 code, shown first), `old` (pre-2025 cap code),
   `name` (2025 name), `oldName`. The UI shows both codes everywhere via `codeLabel()`.
-- Colors whose displayed code changed carry `key:"<pre-audit code>"` (all Pastel Sweetness
-  colors, e.g. BV05 has key "B340"). NEVER edit or remove a `key`.
-- Set ids are permanent even when the label is wrong: `sfaih` = Honolulu 48 Pastel Sweetness,
+- Colors whose displayed code changed carry `key:"<pre-audit code>"` (all SFAIH Pastel
+  colors, e.g. BV05 has key "B340"; Y43 keeps key "YR217", an old cap misread of YR212). NEVER edit or remove a `key`.
+- Set ids are permanent even when the label is wrong: `sfaih` = SFAIH Pastel 51 (cap codes = Ohuhu's old codes),
   `ohuhu-honolulu-b` = Honolulu 48 Mid-tone, `ohuhu-oahu` = Oahu Portrait/Skin 6.
 - To add a color: new entries need no `key`. To fix a code typo on an EXISTING color, add
   `key:"<old typo>"` first so saved data still resolves.
