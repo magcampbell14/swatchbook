@@ -23,8 +23,9 @@ function ColorSheet({color,onClose,onBridge,onBuilder}){
       <div className="cs-top">
         <div className="cs-bigswatch" style={{background:color.hex}}/>
         <div className="cs-meta">
-          <div className="cs-code">{color.code}</div>
+          <div className="cs-code">{liveColor(color).code}{liveColor(color).old?<span className="cs-old"> / {liveColor(color).old}</span>:null}</div>
           <div className="cs-name">{color.name}</div>
+          {liveColor(color).oldName?<div className="cs-oldname">was {liveColor(color).old?liveColor(color).old+" ":""}{liveColor(color).oldName}</div>:null}
           <div className="cs-tags">
             <span className="tag">{TYPE_GLYPH[color.type]||"●"} {mt.short||color.type}</span>
             <span className="tag ghost">{color.setName}</span>
@@ -53,8 +54,8 @@ function ColorSheet({color,onClose,onBridge,onBuilder}){
         <div className="row" style={{gap:8}}>
           {near.map(c=>(
             <div key={c.uid} className="near-col">
-              <Dot hex={c.hex} size={36} stock={stock[c.uid]} title={`${c.code} · ${c.name}`}/>
-              <div className="near-code">{c.code}</div>
+              <Dot hex={c.hex} size={36} stock={stock[c.uid]} title={`${codeLabel(c)} · ${c.name}`}/>
+              <div className="near-code">{codeLabel(c)}</div>
             </div>
           ))}
         </div>
@@ -74,8 +75,8 @@ function LibTile({c,stock,showSet,onClick}){
     <button className={"lib-tile"+(st?" "+st:"")} onClick={onClick}>
       <span className="lib-tile-sw" style={{background:c.hex}}/>
       <span className="lib-tile-meta">
-        <span className="lib-tile-code">{c.code}</span>
-        <span className="lib-tile-name">{c.name}</span>
+        <span className="lib-tile-code">{c.code}{c.old?<span className="lib-tile-old"> / {c.old}</span>:null}</span>
+        <span className="lib-tile-name">{c.name}{c.oldName?<span className="lib-tile-oldname"> · was {c.oldName}</span>:null}</span>
       </span>
       <span className="lib-tile-right">
         {st&&<span className={"lib-tile-stock "+st}>{st}</span>}
@@ -98,7 +99,7 @@ function LibraryScreen({onBridge,onBuilder}){
   const q=query.trim().toLowerCase();
   const filtered=useMemo(()=>{
     let l=base;
-    if(q) l=l.filter(c=>(c.code+" "+c.name+" "+c.setName).toLowerCase().includes(q));
+    if(q) l=l.filter(c=>(c.code+" "+(c.old||"")+" "+c.name+" "+(c.oldName||"")+" "+c.setName).toLowerCase().includes(q));
     if(stockOnly) l=l.filter(c=>stock[c.uid]);
     return l;
   },[base,q,stockOnly,stock]);
@@ -380,7 +381,7 @@ function SavedSheet({open,onClose}){
                 <div className="pg-used-row" key={c.marker.uid||ci}>
                   <span className="pg-used-sw" style={{background:c.marker.hex}}/>
                   <div className="pg-used-meta">
-                    <div className="pg-used-top"><b>{c.marker.code}</b> <span className="muted">{c.marker.name}</span></div>
+                    <div className="pg-used-top"><b>{codeLabel(c.marker)}</b> <span className="muted">{c.marker.name}</span></div>
                     <div className="pg-used-bot"><span className="tag ghost">{c.marker.setName}</span>{c.role&&<span className="ref-pal-role" style={{marginLeft:8}}>{c.role}</span>}</div>
                   </div>
                   <div className="saved-acts">
@@ -424,10 +425,10 @@ function SavedSheet({open,onClose}){
               </div>
               {p.note && <div className="muted sm" style={{marginTop:2}}>{p.note}</div>}
               <div className="row" style={{gap:5,marginTop:8,flexWrap:"wrap"}}>
-                {p.colors.map((c,j)=><span key={j} className="saved-chip" style={{background:c.marker.hex}} title={`${c.marker.code} · ${c.marker.name}`}/>)}
+                {p.colors.map((c,j)=><span key={j} className="saved-chip" style={{background:c.marker.hex}} title={`${codeLabel(c.marker)} · ${c.marker.name}`}/>)}
               </div>
               <div className="row" style={{justifyContent:"space-between",alignItems:"center",marginTop:8,gap:8}}>
-                <div className="saved-codes" style={{marginTop:0,flex:1,minWidth:0}}>{p.colors.map(c=>c.marker.code).join(" · ")}</div>
+                <div className="saved-codes" style={{marginTop:0,flex:1,minWidth:0}}>{p.colors.map(c=>codeLabel(c.marker)).join(" · ")}</div>
                 <button className="pg-used-use" style={{flex:"0 0 auto"}} onClick={()=>{setEditing(null);setPalEdit(i);}}>⋯ edit colours</button>
               </div>
             </div>

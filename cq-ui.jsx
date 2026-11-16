@@ -29,11 +29,19 @@ function useLocal(key,initial){
 
 // ---------- merged inventory (mix freely across sets) ----------
 const ALL_COLORS=[];
+// uid uses `key` when present (pre-audit code) so saved palettes / stock flags never break.
 window.SETS.forEach(s=>s.colors.forEach(c=>ALL_COLORS.push({
-  uid:s.id+":"+c.code, code:c.code, name:c.name, hex:c.hex,
+  uid:s.id+":"+(c.key||c.code), code:c.code, old:c.old||"", name:c.name, oldName:c.oldName||"", hex:c.hex,
   setId:s.id, setName:s.short, type:s.type,
 })));
 const ALL = window.CQ.prep(ALL_COLORS);
+const ALL_BY_UID = {}; ALL.forEach(c=>{ ALL_BY_UID[c.uid]=c; });
+// Both codes, new first: "Y46 / YR250". Works on live colors AND on saved-palette
+// snapshots (which may predate the audit) by looking the color up by uid.
+function liveColor(c){ return (c&&c.uid&&ALL_BY_UID[c.uid])||c||{}; }
+function codeLabel(c){ const l=liveColor(c); return l.old ? l.code+" / "+l.old : (l.code||""); }
+function oldNameOf(c){ const l=liveColor(c); return l.oldName||""; }
+window.codeLabel=codeLabel; window.oldNameOf=oldNameOf; window.liveColor=liveColor;
 const FIN = window.FINISHING.map(f=>({...f, uid:"fin:"+f.code}));
 const TYPE_FILTERS=[["all","All"]];
 const SET_FILTERS=[["all","All sets"],...window.SETS.map(s=>[s.id,s.short])];
@@ -193,7 +201,7 @@ function NameSheet({open,initial,colors,onSave,onClose}){
   return (
     <Sheet open={open} onClose={onClose} title="name this palette">
       <div className="row" style={{gap:5,flexWrap:"wrap",marginBottom:16}}>
-        {(colors||[]).map((c,i)=><span key={i} className="saved-chip" style={{background:c.marker.hex}} title={c.marker.code}/>)}
+        {(colors||[]).map((c,i)=><span key={i} className="saved-chip" style={{background:c.marker.hex}} title={codeLabel(c.marker)}/>)}
       </div>
       <input className="text-field" value={name} maxLength={28} autoFocus
         onChange={e=>setName(e.target.value)}
@@ -227,7 +235,7 @@ function ColorPicker({selected,onPick,multi}){
   const swatch=c=>(
     <Dot key={c.uid} hex={c.hex} size={34} sel={sel.has(c.uid)} stock={stock[c.uid]}
       ring={sel.has(c.uid)?"var(--accent)":null}
-      onClick={()=>tap(c)} title={`${c.code} · ${c.name} · ${c.setName}`}/>
+      onClick={()=>tap(c)} title={`${codeLabel(c)} · ${c.name} · ${c.setName}`}/>
   );
   return (
     <div className="picker">
@@ -247,7 +255,7 @@ function ColorPicker({selected,onPick,multi}){
         <div className={"pick-confirm "+confirm.action} aria-live="polite">
           <span className="pick-confirm-sw" style={{background:confirm.color.hex}}/>
           <div className="pick-confirm-meta">
-            <div className="pick-confirm-code">{confirm.color.code}</div>
+            <div className="pick-confirm-code">{codeLabel(confirm.color)}</div>
             <div className="pick-confirm-name">{confirm.color.name} · {confirm.color.setName}</div>
           </div>
           <span className={"pick-confirm-tag "+confirm.action}>

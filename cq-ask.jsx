@@ -20,7 +20,7 @@ ${OWNED}
 Plus finishing tools: a colourless alcohol blender, Posca white paint pens, white gel pens, and Derwent blender + burnisher pencils.
 
 HOW EACH MEDIUM ACTUALLY BEHAVES (be accurate when you recommend one):
-• Alcohol markers (Ohuhu, SFAIH pastel): dye in alcohol solvent. Blend wet-into-wet, work light -> dark, a colourless blender feathers edges. Solvent re-wets dye, so keep a "dirty" nib for darks.
+• Alcohol markers (Ohuhu): dye in alcohol solvent. Blend wet-into-wet, work light -> dark, a colourless blender feathers edges. Solvent re-wets dye, so keep a "dirty" nib for darks.
 • Coloured pencils (Prismacolor, Luminance): wax-based. Build light layers, burnish last to fuse and shine. A complement underneath knocks a colour back for shadow.
 • Derwent Inktense: water-soluble INK pencils — dull/matte dry, vivid once water touches them, and PERMANENT once dry (water won't re-lift; alcohol can pull a little).
 • Gel pens (Guangna macaron): opaque, sit on top — highlights/accents on dark paper.

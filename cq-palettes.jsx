@@ -28,7 +28,7 @@ function EndpointCard({label,color,onClick}){
       {color?(
         <div className="row" style={{alignItems:"center",gap:10}}>
           <Dot hex={color.hex} size={38}/>
-          <div style={{textAlign:"left"}}><div className="endpt-code">{color.code}</div><div className="muted sm">{color.setName}</div></div>
+          <div style={{textAlign:"left"}}><div className="endpt-code">{codeLabel(color)}</div><div className="muted sm">{color.setName}</div></div>
         </div>
       ):<div className="muted">tap to pick →</div>}
     </div>
@@ -161,7 +161,7 @@ function BuildMode(){
             ? <span className="muted sm">none yet — totally optional</span>
             : chosen.map(c=>(
                 <button key={c.uid} className="chosen-chip" onClick={()=>toggleAnchor(c.uid)} title="remove">
-                  <span className="chosen-sw" style={{background:c.hex}}/>{c.code}<span className="chosen-x">×</span>
+                  <span className="chosen-sw" style={{background:c.hex}}/>{codeLabel(c)}<span className="chosen-x">×</span>
                 </button>
               ))}
         </div>
@@ -224,7 +224,7 @@ function BuildMode(){
           {result.colors.map((c,i)=>(
             <div key={i} className={"slot"+(c.locked?" locked":"")}>
               <button className="slot-sw" style={{background:c.marker?c.marker.hex:"#333"}} onClick={()=>setSwapIdx(i)} title="swap this colour"/>
-              <div className="slot-code">{c.marker?c.marker.code:""}</div>
+              <div className="slot-code">{c.marker?codeLabel(c.marker):""}</div>
               <div className="slot-role">{c.role}</div>
               {c.marker&&<button className={"slot-lock"+(c.locked?" on":"")} onClick={()=>toggleLock(i)} title={c.locked?"unlock":"lock in"}>{c.locked?"🔒":"+"}</button>}
             </div>
@@ -285,7 +285,7 @@ function BuildMode(){
         <div className="muted sm" style={{marginBottom:10}}>Closest colours you own to this slot — tap one to lock it in.</div>
         <div className="fam-grid">
           {swapCands.map(c=>(
-            <Dot key={c.uid} hex={c.hex} size={38} onClick={()=>doSwap(c.uid)} title={`${c.code} · ${c.name} · ${c.setName}`}/>
+            <Dot key={c.uid} hex={c.hex} size={38} onClick={()=>doSwap(c.uid)} title={`${codeLabel(c)} · ${c.name} · ${c.setName}`}/>
           ))}
         </div>
       </Sheet>
@@ -344,7 +344,7 @@ function BlendMode(){
               <div className="ramp-grad" style={{background:`linear-gradient(90deg, ${result.gradient.join(",")})`}}/>
               {result.seq.map((c,i)=>{
                 const end=c.uid===uidA||c.uid===uidB;
-                return <div key={i} className={"ramp-node"+(end?" end":"")} style={{left:`${c.u*100}%`,background:c.hex}} title={`${c.code} · ${c.name}`}/>;
+                return <div key={i} className={"ramp-node"+(end?" end":"")} style={{left:`${c.u*100}%`,background:c.hex}} title={`${codeLabel(c)} · ${c.name}`}/>;
               })}
               {result.gaps.map((g,i)=>{const mid=(g.from.u+g.to.u)/2;return <div key={"g"+i} className="gap" style={{left:`${mid*100}%`}}>blend</div>;})}
             </div>
@@ -355,7 +355,7 @@ function BlendMode(){
                   <React.Fragment key={i}>
                     <div className={"seq-chip"+(end?" end":"")}>
                       <span className="seq-sw" style={{background:c.hex}}/>
-                      <span className="seq-code">{c.code}</span>
+                      <span className="seq-code">{codeLabel(c)}</span>
                       <span className="seq-set">{c.setName}</span>
                     </div>
                     {result.gaps.find(g=>g.afterIndex===i) && <span className="seq-gap" title="blend by hand here">⤳</span>}
@@ -366,7 +366,7 @@ function BlendMode(){
           </div>
           <div className="summary">
             {result.ramp.length===0
-              ? <>No in-betweens — these sit side by side. Blend <b>{result.a.code}</b> straight into <b>{result.b.code}</b>.</>
+              ? <>No in-betweens — these sit side by side. Blend <b>{codeLabel(result.a)}</b> straight into <b>{codeLabel(result.b)}</b>.</>
               : <><b>{result.ramp.length}</b> colours bridge this{result.gaps.length>0?<> · <b>{result.gaps.length}</b> hand-blend spot{result.gaps.length>1?"s":""}</>:<> · smooth the whole way ✦</>}</>}
           </div>
           {mode==="direct" && A&&B && A._lch[1]>20 && B._lch[1]>20 && result.ramp.some(c=>c._lch&&c._lch[1]<14) && (
@@ -377,7 +377,7 @@ function BlendMode(){
           {result.nearby.length>0 && (
             <div className="row" style={{gap:8,alignItems:"center",marginTop:10,flexWrap:"wrap"}}>
               <span className="muted sm">also near:</span>
-              {result.nearby.map(c=><Dot key={c.uid} hex={c.hex} size={24} title={`${c.code} · ${c.name}`}/>)}
+              {result.nearby.map(c=><Dot key={c.uid} hex={c.hex} size={24} title={`${codeLabel(c)} · ${c.name}`}/>)}
             </div>
           )}
           <div className="tip-card" style={{marginTop:16}}>
@@ -424,7 +424,7 @@ function GradientMode(){
   const savedIdx=result?savedList.findIndex(p=>(p.sig||paletteSig(p.colors))===sig):-1;
   const isSaved=savedIdx>=0;
   const toggleSave=()=>{ if(!result) return; if(isSaved){ setSavedPalettes(savedList.filter((_,i)=>i!==savedIdx)); } else { setNameOpen(true); } };
-  const doSave=(name)=>{ setSavedPalettes([{name,kind:"Gradient",note:`${result.a.code} → ${result.b.code} · ${palColors.length}`,colors:palColors,sig,ts:Date.now()},...savedList].slice(0,60)); setNameOpen(false); };
+  const doSave=(name)=>{ setSavedPalettes([{name,kind:"Gradient",note:`${result.a.code} → ${codeLabel(result.b)} · ${palColors.length}`,colors:palColors,sig,ts:Date.now()},...savedList].slice(0,60)); setNameOpen(false); };
 
   return (
     <>
@@ -459,14 +459,14 @@ function GradientMode(){
               {result.stops.map((s,i)=>(
                 <div key={i} className={"ramp-node"+(i===0||i===result.stops.length-1?" end":"")}
                   style={{left:`${s.u*100}%`,background:s.marker?s.marker.hex:s.idealHex}}
-                  title={s.marker?`${s.marker.code} · ${s.marker.name}`:s.idealHex}/>
+                  title={s.marker?`${codeLabel(s.marker)} · ${s.marker.name}`:s.idealHex}/>
               ))}
             </div>
             <div className="ramp-seq">
               {result.stops.map((s,i)=>(
                 <div key={i} className={"seq-chip"+(i===0||i===result.stops.length-1?" end":"")}>
                   <span className="seq-sw" style={{background:s.marker?s.marker.hex:s.idealHex}}/>
-                  <span className="seq-code">{s.marker?s.marker.code:"—"}</span>
+                  <span className="seq-code">{s.marker?codeLabel(s.marker):"—"}</span>
                   <span className="seq-set">{s.marker?s.marker.setName:""}</span>
                 </div>
               ))}

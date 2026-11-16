@@ -31,6 +31,18 @@ Backup envelope shape (keep stable): `{ app:"swatchbook", v:1, exportedAt, keys:
 }
 ```
 
+## 2b. Marker ids (uid) — never change a color's `key`, a set `id`, or a `code` without a `key`
+Every color's saved-data id is `setId:(key || code)` (built in `cq-ui.jsx`). Saved palettes,
+the palette signature, and `cq-stock` flags all point at that uid.
+- Nov 2026 audit: each color now has `code` (2025 code, shown first), `old` (pre-2025 cap code),
+  `name` (2025 name), `oldName`. The UI shows both codes everywhere via `codeLabel()`.
+- Colors whose displayed code changed carry `key:"<pre-audit code>"` (all Pastel Sweetness
+  colors, e.g. BV05 has key "B340"). NEVER edit or remove a `key`.
+- Set ids are permanent even when the label is wrong: `sfaih` = Honolulu 48 Pastel Sweetness,
+  `ohuhu-honolulu-b` = Honolulu 48 Mid-tone, `ohuhu-oahu` = Oahu Portrait/Skin 6.
+- To add a color: new entries need no `key`. To fix a code typo on an EXISTING color, add
+  `key:"<old typo>"` first so saved data still resolves.
+
 ## 3. iOS scroll fixes — never remove or revert
 These fix a real iOS Safari bug where the bottom of a screen sat under the fixed bottom
 nav and rubber-banded back (content was reachable only as a "peek", not a full scroll).
@@ -63,8 +75,7 @@ ReactDOM **production** builds and Babel at the exact pinned versions, plus the 
 Google Fonts stylesheet. No un-cached external fetches or offline mode breaks. If you
 bump a CDN version, update the `PRECACHE` list in `sw.js` to match.
 
-## 6. Build outputs — regenerate, don't hand-edit
-Canonical source is `Swatch Book.html`. `Swatch Book (offline).html` and everything in
-`/deploy` are generated from it. Also ignore the old Doodlebench files
-(`Doodlebench.html`, `src/app.jsx`, `src/tabs.jsx`, `src/components.jsx`, `src/styles.css`,
-`data/colors.js`) — they are NOT part of swatchbook.
+## 6. Source of truth
+As of Nov 2026 the GitHub repo (magcampbell14/swatchbook) IS the source. Edit these files
+directly (Claude Code). The older Claude Design project ("Swatch Book.html") is out of date —
+don't export from it over the top of this repo, or the audit is lost.

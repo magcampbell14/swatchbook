@@ -286,8 +286,8 @@
         // code line
         x.fillStyle="#1a1320"; x.font="600 25px Fredoka, sans-serif";
         let cx=tx;
-        x.fillText(col.code, cx, y+27);
-        cx+=x.measureText(col.code).width+12;
+        x.fillText(codeLabel(col), cx, y+27);
+        cx+=x.measureText(codeLabel(col)).width+12;
         if(ohuhu && alt){
           x.font="400 19px Fredoka, sans-serif"; x.fillStyle="#8a7f70";
           x.fillText("· alt "+alt, cx, y+26);
@@ -440,7 +440,7 @@
             <span className="pg-cc-sw" style={{background:activeCol?activeCol.hex:"transparent",borderStyle:activeCol?"solid":"dashed"}}/>
             <span className="pg-cc-meta">
               {activeCol
-                ? <><b>{activeCol.code} · {activeCol.name}</b><span>{tray.length} colour{tray.length===1?"":"s"} ready · tap to switch</span></>
+                ? <><b>{codeLabel(activeCol)} · {activeCol.name}</b><span>{tray.length} colour{tray.length===1?"":"s"} ready · tap to switch</span></>
                 : <><b>pick a colour</b><span>tap to choose or load a palette</span></>}
             </span>
             <span className="pg-cc-chev">▴</span>
@@ -455,10 +455,10 @@
             <div className="pg-pal-grid">
               {tray.map(uid=>{ const c=colorOf(uid); if(!c) return null;
                 return (
-                  <button key={uid} className={"pg-pal-cell"+(active===uid?" on":"")} title={`${c.code} · ${c.name}`}
+                  <button key={uid} className={"pg-pal-cell"+(active===uid?" on":"")} title={`${codeLabel(c)} · ${c.name}`}
                     onClick={()=>{setActive(uid);setMode("fill");setManageOpen(false);}}>
                     <span className="pg-pal-dot" style={{background:c.hex}}/>
-                    <span className="pg-pal-code">{c.code}</span>
+                    <span className="pg-pal-code">{codeLabel(c)}</span>
                     <span className="pg-pal-x" role="button" aria-label="remove" onClick={e=>{e.stopPropagation();removeFromTray(uid);}}>×</span>
                   </button>
                 ); })}
@@ -514,7 +514,7 @@
             <div className="pg-used-row" key={uid}>
               <span className="pg-used-sw" style={{background:col.hex}}/>
               <div className="pg-used-meta">
-                <div className="pg-used-top"><b>{col.code}</b> <span className="muted">{col.name}</span></div>
+                <div className="pg-used-top"><b>{codeLabel(col)}</b> <span className="muted">{col.name}</span></div>
                 <div className="pg-used-bot"><span className="tag ghost">{col.setName}</span></div>
               </div>
               <span className="pg-used-count">×{count}</span>

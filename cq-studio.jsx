@@ -203,7 +203,7 @@ Return ONLY a single <svg> element. No markdown fences, no comments, no words.
                   <div className="ref-pal-row" key={i}>
                     <span className="ref-pal-sw" style={{background:c.marker.hex}}/>
                     <div className="ref-pal-meta">
-                      <div className="ref-pal-top"><b>{c.marker.code}</b> <span className="muted">{c.marker.name}</span></div>
+                      <div className="ref-pal-top"><b>{codeLabel(c.marker)}</b> <span className="muted">{c.marker.name}</span></div>
                       <div className="ref-pal-bot">
                         <span className="tag ghost">{c.marker.setName}</span>
                         {c.role && <span className="ref-pal-role">{c.role}</span>}
