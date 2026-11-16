@@ -222,6 +222,20 @@ input{font-family:inherit;}
 .sb-ramp{display:flex;height:36px;border-radius:10px;overflow:hidden;margin:16px 0 4px;border:1px solid var(--line);}
 .sb-ramp span{flex:1;}
 
+/* ---- palettes around a color ---- */
+.sb-around{padding:14px 0;border-bottom:1px solid var(--line);}
+.sb-around-head{display:flex;align-items:baseline;gap:8px;margin-bottom:8px;}
+.sb-around-chips{display:flex;gap:8px;flex-wrap:wrap;}
+.sb-around-chip{display:flex;flex-direction:column;align-items:center;gap:3px;width:48px;font-weight:600;}
+.sb-around-sw{width:44px;height:44px;border-radius:12px;border:1px solid rgba(43,38,34,.13);}
+.sb-around-chip.anchor .sb-around-sw{box-shadow:0 0 0 2px var(--paper),0 0 0 4px var(--ink);}
+.sb-dock-sel .sb-pillbtn+.sb-pillbtn{margin-left:-2px;}
+
+/* ---- start sheet preview ---- */
+.sb-startprev{display:flex;gap:14px;align-items:center;margin-bottom:14px;}
+.sb-startprev img{width:96px;height:116px;object-fit:contain;border-radius:10px;border:1px solid var(--line);background:var(--white);flex:0 0 auto;}
+.sb-startprev-txt{display:flex;flex-direction:column;gap:4px;align-items:flex-start;}
+
 /* ---- backup ---- */
 .sb-backup{margin-top:28px;}
 .sb-restore{margin-top:10px;padding:12px;border:1px solid var(--line);border-radius:14px;background:var(--card);font-size:14px;}

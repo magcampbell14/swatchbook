@@ -139,6 +139,7 @@ window.CQ = (function () {
     fresh:{label:"Fresh",dL:+9,mC:1.0,dH:-12,key:+6},
     earthy:{label:"Earthy",dL:-2,mC:0.6,dH:+12,key:-2},
     vintage:{label:"Vintage",dL:+4,mC:0.5,dH:+16,key:+2},
+    balanced:{label:"Balanced",dL:0,mC:1,dH:0,key:0},   // v2: neutral recipe for "palettes around this color" (not in MOOD_ORDER)
   };
   const MOOD_ORDER=["golden","pastel","blue","moody","vibrant","fresh","earthy","vintage"];
   // hue offsets distributed across ANY number of slots per harmony.
@@ -177,7 +178,7 @@ window.CQ = (function () {
           ? fixedColors.slice().sort((a,b)=>b._lch[1]-a._lch[1])[0]._lch[2]
           : (reseed*47)%360);
     const hues=huesFor(harmony,(base+reseed*17)%360,n);
-    const LHI=90,LLO=18;
+    const LHI=90, LLO=(opts.lo!=null?opts.lo:18);   // v2: lo lets soft/pastel recipes stop short of near-black
     const targets=Array.from({length:n},(_,i)=>{
       const t=n<=1?0.35:i/(n-1);
       const Lv=LHI+(LLO-LHI)*t;

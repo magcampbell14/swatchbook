@@ -98,6 +98,11 @@ Three tabs: **Pages** (home) · **Markers** · **Palettes**. Loaded files:
 then `sb-core.jsx` (marker groups, stock, shading recs, harmony recolor, photo palette,
 shared UI), `sb-pages.jsx`, `sb-markers.jsx`, `sb-palettes.jsx`; the App shell is inline in
 `index.html`. Each `sb-*.jsx` is wrapped in an IIFE (babel scripts share one global scope).
+- New page photos run through `cleanPage()` (sb-pages.jsx): find the paper (bright + smooth +
+  unsaturated), perspective-flatten it, divide out lighting, keep dark unsaturated strokes as
+  black-on-white lines, trim to the drawing. The start sheet can switch back to the original photo.
+- cq-engine `build()` accepts `lo` (darkest target L; soft/pastel recipes use ~50) and a neutral
+  `balanced` mood (not in MOOD_ORDER). Starter vibes use per-vibe key hues (`RECIPES`).
 - Same-ink grouping: Ohuhu markers with the same `code` are ONE ink across sets (×2 badge);
   SFAIH inks are separate even when codes match.
 - Design rule from Maggie: no beginner tips or reminders of basics (e.g. acrylic highlights).
