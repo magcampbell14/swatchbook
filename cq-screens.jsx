@@ -379,7 +379,7 @@ function SavedSheet({open,onClose}){
             <div className="saved-list">
               {cols.map((c,ci)=>(
                 <div className="pg-used-row" key={c.marker.uid||ci}>
-                  <span className="pg-used-sw" style={{background:c.marker.hex}}/>
+                  <span className="pg-used-sw" style={{background:hexOf(c.marker)}}/>
                   <div className="pg-used-meta">
                     <div className="pg-used-top"><b>{codeLabel(c.marker)}</b> <span className="muted">{c.marker.name}</span></div>
                     <div className="pg-used-bot"><span className="tag ghost">{c.marker.setName}</span>{c.role&&<span className="ref-pal-role" style={{marginLeft:8}}>{c.role}</span>}</div>
@@ -425,7 +425,7 @@ function SavedSheet({open,onClose}){
               </div>
               {p.note && <div className="muted sm" style={{marginTop:2}}>{p.note}</div>}
               <div className="row" style={{gap:5,marginTop:8,flexWrap:"wrap"}}>
-                {p.colors.map((c,j)=><span key={j} className="saved-chip" style={{background:c.marker.hex}} title={`${codeLabel(c.marker)} · ${c.marker.name}`}/>)}
+                {p.colors.map((c,j)=><span key={j} className="saved-chip" style={{background:hexOf(c.marker)}} title={`${codeLabel(c.marker)} · ${c.marker.name}`}/>)}
               </div>
               <div className="row" style={{justifyContent:"space-between",alignItems:"center",marginTop:8,gap:8}}>
                 <div className="saved-codes" style={{marginTop:0,flex:1,minWidth:0}}>{p.colors.map(c=>codeLabel(c.marker)).join(" · ")}</div>

@@ -485,7 +485,7 @@
               const uids=p.colors.map(c=>c.marker.uid);
               setTray(t=>[...new Set([...t,...uids])]); setActive(uids[0]||null); setPalOpen(false);
             }}>
-              <span className="studio-pick-pal">{p.colors.slice(0,6).map((c,i)=><span key={i} style={{background:c.marker.hex}}/>)}</span>
+              <span className="studio-pick-pal">{p.colors.slice(0,6).map((c,i)=><span key={i} style={{background:hexOf(c.marker)}}/>)}</span>
               <span className="studio-pick-txt"><b>{p.name||p.label}</b><span>{p.colors.length} colours · {p.note}</span></span>
             </button>
           ))}

@@ -100,7 +100,7 @@ Return ONLY a single <svg> element. No markdown fences, no comments, no words.
     },[selIdea,ideas,favList]);
     const pal = useMemo(()=>pals.find(p=>p.ts===selPalTs)||null,[pals,selPalTs]);
 
-    const palHexes = pal? pal.colors.map(c=>c.marker.hex) : [];
+    const palHexes = pal? pal.colors.map(c=>hexOf(c.marker)) : [];
     const pvKey = (selIdea? (selIdea.kind+":"+selIdea.id):"_") + "|" + (selPalTs||"_");
     const preview = previews && previews[pvKey];
 
@@ -162,7 +162,7 @@ Return ONLY a single <svg> element. No markdown fences, no comments, no words.
           <span className="studio-slot-lbl">🎨 Palette</span>
           {pal
             ? <span className="studio-slot-val">
-                <span className="studio-pal-row">{pal.colors.slice(0,7).map((c,i)=><span key={i} className="studio-pal-dot" style={{background:c.marker.hex}}/>)}</span>
+                <span className="studio-pal-row">{pal.colors.slice(0,7).map((c,i)=><span key={i} className="studio-pal-dot" style={{background:hexOf(c.marker)}}/>)}</span>
                 <span className="studio-slot-sub">{(pal.name||pal.label)} · {pal.note}</span>
               </span>
             : <span className="studio-slot-empty">tap to choose a saved palette →</span>}
@@ -198,10 +198,10 @@ Return ONLY a single <svg> element. No markdown fences, no comments, no words.
             <div className="ref-title sm">{(pal.name||pal.label)}<span className="muted" style={{fontWeight:400}}> · {pal.note}</span></div>
             <div className="ref-pal-list">
               {pal.colors.map((c,i)=>{
-                const L=Math.round(hexLum(c.marker.hex)*100);
+                const L=Math.round(hexLum(hexOf(c.marker))*100);
                 return (
                   <div className="ref-pal-row" key={i}>
-                    <span className="ref-pal-sw" style={{background:c.marker.hex}}/>
+                    <span className="ref-pal-sw" style={{background:hexOf(c.marker)}}/>
                     <div className="ref-pal-meta">
                       <div className="ref-pal-top"><b>{codeLabel(c.marker)}</b> <span className="muted">{c.marker.name}</span></div>
                       <div className="ref-pal-bot">
@@ -275,7 +275,7 @@ Return ONLY a single <svg> element. No markdown fences, no comments, no words.
           {pals.map(p=>(
             <button key={p.ts} className={"studio-pick-row"+(selPalTs===p.ts?" on":"")}
               onClick={()=>{setSelPalTs(p.ts);setPickPal(false);}}>
-              <span className="studio-pick-pal">{p.colors.slice(0,6).map((c,i)=><span key={i} style={{background:c.marker.hex}}/>)}</span>
+              <span className="studio-pick-pal">{p.colors.slice(0,6).map((c,i)=><span key={i} style={{background:hexOf(c.marker)}}/>)}</span>
               <span className="studio-pick-txt"><b>{p.name||p.label}</b><span>{p.note}</span></span>
             </button>
           ))}

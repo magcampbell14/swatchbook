@@ -41,7 +41,8 @@ const ALL_BY_UID = {}; ALL.forEach(c=>{ ALL_BY_UID[c.uid]=c; });
 function liveColor(c){ return (c&&c.uid&&ALL_BY_UID[c.uid])||c||{}; }
 function codeLabel(c){ const l=liveColor(c); return l.old ? l.code+" / "+l.old : (l.code||""); }
 function oldNameOf(c){ const l=liveColor(c); return l.oldName||""; }
-window.codeLabel=codeLabel; window.oldNameOf=oldNameOf; window.liveColor=liveColor;
+function hexOf(m){ const l=liveColor(m); return l.hex||(m&&m.hex)||"#333"; }
+window.hexOf=hexOf; window.codeLabel=codeLabel; window.oldNameOf=oldNameOf; window.liveColor=liveColor;
 const FIN = window.FINISHING.map(f=>({...f, uid:"fin:"+f.code}));
 const TYPE_FILTERS=[["all","All"]];
 const SET_FILTERS=[["all","All sets"],...window.SETS.map(s=>[s.id,s.short])];
@@ -93,7 +94,7 @@ function cuteName(colors){
 // Map a palette of ANY size onto the scene's 6 tonal slots: sort light→dark and
 // sample evenly, so a 4- or 9-colour palette both read as a coherent scene.
 function sceneColors(cs){
-  const hexes=(cs||[]).map(c=>c&&(c.marker?c.marker.hex:c.hex)).filter(Boolean);
+  const hexes=(cs||[]).map(c=>c&&(c.marker?hexOf(c.marker):c.hex)).filter(Boolean);
   if(!hexes.length) return ["#e9d9b8","#cdbfa0","#9c8f76","#6f6552","#4a4336","#2a271f"];
   const prepped=window.CQ.prep(hexes.map((h,i)=>({hex:h,uid:i+""}))).slice().sort((a,b)=>b._lch[0]-a._lch[0]);
   const out=[];
@@ -201,7 +202,7 @@ function NameSheet({open,initial,colors,onSave,onClose}){
   return (
     <Sheet open={open} onClose={onClose} title="name this palette">
       <div className="row" style={{gap:5,flexWrap:"wrap",marginBottom:16}}>
-        {(colors||[]).map((c,i)=><span key={i} className="saved-chip" style={{background:c.marker.hex}} title={codeLabel(c.marker)}/>)}
+        {(colors||[]).map((c,i)=><span key={i} className="saved-chip" style={{background:hexOf(c.marker)}} title={codeLabel(c.marker)}/>)}
       </div>
       <input className="text-field" value={name} maxLength={28} autoFocus
         onChange={e=>setName(e.target.value)}
