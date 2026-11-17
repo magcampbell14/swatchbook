@@ -10,7 +10,7 @@
  *
  * Bump CACHE_VERSION only if you ever want to force-purge every phone's cache.
  */
-const CACHE_VERSION = "swatchbook-v2";
+const CACHE_VERSION = "swatchbook-v3";
 
 // Shell precached on install so the very first offline launch works.
 const PRECACHE = [

@@ -166,7 +166,7 @@ window.SETS = [
       { code:"E46", old:"E220", name:"Sand", oldName:"Coral Sand", hex:"#d49e6b", key:"E220" },
       { code:"Y69", old:"E210", name:"Brick Beige", oldName:"Milk Tea", hex:"#ddc091", key:"E210" },
       { code:"YR55", old:"E470", name:"Tea Rose", oldName:"Pink Lemonade", hex:"#f1c0b1", key:"E470" },
-      { code:"YR57", old:"BR208", name:"Buck Brown", oldName:"Tropical Peach", hex:"#f8b2ab", key:"BR208" },
+      { code:"YR57", old:"BR208", name:"Black Brown", oldName:"Tropical Peach", hex:"#f8b2ab", key:"BR208" },
       { code:"R54", old:"R250", name:"Antique Fuchsia", oldName:"Lavender Fog", hex:"#c2a4b5", key:"R250" },
       { code:"R15", old:"R110", name:"Sardonyx", oldName:"Lychee Juice", hex:"#eaa1ae", key:"R110" },
       { code:"R27", old:"R120", name:"Light Prawn", oldName:"Pink Satin", hex:"#c97484", key:"R120" },
