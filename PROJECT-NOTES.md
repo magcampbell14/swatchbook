@@ -103,6 +103,12 @@ shared UI), `sb-pages.jsx`, `sb-markers.jsx`, `sb-palettes.jsx`; the App shell i
   black-on-white lines, trim to the drawing. The start sheet can switch back to the original photo.
 - cq-engine `build()` accepts `lo` (darkest target L; soft/pastel recipes use ~50) and a neutral
   `balanced` mood (not in MOOD_ORDER). Starter vibes use per-vibe key hues (`RECIPES`).
+- Editor gestures: tap = fill (taps on an outline slide to the nearest paper pixel within ~16
+  screen px); two fingers = zoom + move anchored between the fingers; a deliberate one-finger
+  drag (>22px) also moves; the view is clamped so the page can't be lost. Undo + redo.
+- "Best with this page" (`fitScore` in sb-core): harmony with hues already on the page
+  (same/neighbor/complement/split/triad) + tonal match (similar chroma) + lightness range.
+  Used by the + picker (with family filters) and the "Goes with this page" row.
 - Same-ink grouping: Ohuhu markers with the same `code` are ONE ink across sets (×2 badge);
   SFAIH inks are separate even when codes match.
 - Design rule from Maggie: no beginner tips or reminders of basics (e.g. acrylic highlights).

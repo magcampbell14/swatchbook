@@ -400,6 +400,17 @@
       if(!active){ setPickOpen(true); return; }
       const w=page.w,h=page.h; px=Math.max(0,Math.min(w-1,px|0)); py=Math.max(0,Math.min(h-1,py|0));
       const hex=uidHex(active); if(!hex) return;
+      // a fingertip often lands on the outline of a small shape — slide to the nearest
+      // paper pixel within ~16 screen px so tiny areas (apples, buttons) still fill
+      const bd=baseDataRef.current, lum=(x,y)=>{ const k=(y*w+x)*4; return bd[k]*0.299+bd[k+1]*0.587+bd[k+2]*0.114; };
+      if(lum(px,py)<150){
+        const R=Math.max(4,Math.round(16/Math.max(0.2,viewR.current.s))); let found=null;
+        for(let r=1;r<=R&&!found;r++){ let bestD=Infinity;
+          for(let dy=-r;dy<=r;dy++) for(let dx=-r;dx<=r;dx++){ if(Math.max(Math.abs(dx),Math.abs(dy))!==r) continue;
+            const x=px+dx,y=py+dy; if(x<0||y<0||x>=w||y>=h) continue; const d=dx*dx+dy*dy;
+            if(d<bestD && lum(x,y)>=150){ bestD=d; found=[x,y]; } } }
+        if(!found) return; [px,py]=found;
+      }
       const fctx=fillRef.current.getContext("2d"); const fimg=fctx.getImageData(0,0,w,h);
       const i=(py*w+px)*4; const [r,g,b]=hexToRgb(hex);
       if(fimg.data[i+3]===255 && fimg.data[i]===r && fimg.data[i+1]===g && fimg.data[i+2]===b){ setShade({uid:active,context:"This area"}); return; }
@@ -411,6 +422,11 @@
     function rebuild(hist){ replayInto(fillRef.current, baseDataRef.current, page.w, page.h, hist, tol); redraw(); }
     function undo(){ if(!history.length) return; const popped=history[history.length-1]; const hist=history.slice(0,-1);
       setFuture(f=>[...f,popped]); rebuild(hist); setCur({history:hist}); }
+    function redo(){ if(!future.length) return; const op=future[future.length-1]; setFuture(f=>f.slice(0,-1));
+      const hex=uidHex(op.uid); if(!hex) return; const w=page.w,h=page.h;
+      const fctx=fillRef.current.getContext("2d"), fimg=fctx.getImageData(0,0,w,h);
+      floodFill(baseDataRef.current, fimg.data, w, h, op.x, op.y, hexToRgb(hex), op.tol||tol); fctx.putImageData(fimg,0,0); redraw();
+      setCur({history:[...history,op]}); }
     function switchVersion(i){ if(i===ver) return; setFuture([]); rebuild(versions[i].history||[]); commit(versions,i); }
     function replaceEverywhere(fromUid,toUid){
       const hist=history.map(a=>a.uid===fromUid?{...a,uid:toUid}:a);
@@ -443,26 +459,39 @@
       const next=[...versions,nv]; rebuild(nv.history); commit(next,next.length-1);
     }
 
-    // ---- gestures: tap = fill, drag = pan, pinch / wheel = zoom ----
-    const ptrs=useRef(new Map()), gesture=useRef(null), pinch=useRef(null);
+    // ---- gestures ----
+    // tap = fill · two fingers = zoom + move, anchored between the fingers (like most coloring
+    // apps) · a deliberate one-finger drag also moves · mouse wheel zooms on a computer.
+    // The page is kept on screen, so it can't get lost off to the side.
+    const ptrs=useRef(new Map()), g=useRef(null), viewR=useRef(view); viewR.current=view;
+    function clampView(v){
+      const wrap=wrapRef.current; if(!wrap) return v; const cw=wrap.clientWidth, ch=wrap.clientHeight;
+      const fit=Math.min(cw/page.w,ch/page.h)*0.98, s=Math.max(fit*0.9,Math.min(fit*14,v.s));
+      const pw=page.w*s, ph=page.h*s, m=48;
+      return {s, x:pw<=cw?(cw-pw)/2:Math.min(m,Math.max(cw-pw-m,v.x)), y:ph<=ch?(ch-ph)/2:Math.min(m,Math.max(ch-ph-m,v.y))};
+    }
+    const setV=v=>setView(clampView(v));
+    const rel=(x,y)=>{ const r=wrapRef.current.getBoundingClientRect(); return [x-r.left,y-r.top]; };
     const toImg=(cx,cy)=>{ const r=viewRef.current.getBoundingClientRect(); return [(cx-r.left)/r.width*page.w,(cy-r.top)/r.height*page.h]; };
+    function startPinch(){ const [a,b]=[...ptrs.current.values()]; const [mx,my]=rel((a.x+b.x)/2,(a.y+b.y)/2);
+      g.current={...(g.current||{}),multi:true,pinch:{d:Math.hypot(a.x-b.x,a.y-b.y)||1,mx,my,v:viewR.current}}; }
     function onDown(e){ e.currentTarget.setPointerCapture&&e.currentTarget.setPointerCapture(e.pointerId);
       ptrs.current.set(e.pointerId,{x:e.clientX,y:e.clientY});
-      if(ptrs.current.size===1) gesture.current={sx:e.clientX,sy:e.clientY,moved:0};
-      if(ptrs.current.size===2){ const [a,b]=[...ptrs.current.values()]; const r=wrapRef.current.getBoundingClientRect();
-        pinch.current={d:Math.hypot(a.x-b.x,a.y-b.y),mx:(a.x+b.x)/2-r.left,my:(a.y+b.y)/2-r.top,s:view.s,vx:view.x,vy:view.y}; } }
-    function onMove(e){ if(!ptrs.current.has(e.pointerId)) return; const prev=ptrs.current.get(e.pointerId);
+      if(ptrs.current.size===1) g.current={t:Date.now(),sx:e.clientX,sy:e.clientY,moved:0,multi:false,mouse:e.pointerType==="mouse"};
+      else if(ptrs.current.size===2) startPinch(); }
+    function onMove(e){ if(!ptrs.current.has(e.pointerId)||!g.current) return; const prev=ptrs.current.get(e.pointerId);
       ptrs.current.set(e.pointerId,{x:e.clientX,y:e.clientY});
-      if(ptrs.current.size>=2&&pinch.current){ const [a,b]=[...ptrs.current.values()]; const p=pinch.current;
-        const ns=Math.max(0.3,Math.min(8,p.s*Math.hypot(a.x-b.x,a.y-b.y)/(p.d||1)));
-        setView({s:ns,x:p.mx-(p.mx-p.vx)*(ns/p.s),y:p.my-(p.my-p.vy)*(ns/p.s)}); if(gesture.current) gesture.current.moved=99; return; }
-      if(gesture.current){ gesture.current.moved=Math.abs(e.clientX-gesture.current.sx)+Math.abs(e.clientY-gesture.current.sy);
-        if(gesture.current.moved>8){ const dx=e.clientX-prev.x, dy=e.clientY-prev.y; setView(v=>({...v,x:v.x+dx,y:v.y+dy})); } } }
-    function onUp(e){ const single=ptrs.current.size===1; ptrs.current.delete(e.pointerId); if(ptrs.current.size<2) pinch.current=null;
-      if(single&&gesture.current&&gesture.current.moved<8){ const [ix,iy]=toImg(e.clientX,e.clientY); doFill(ix,iy); }
-      if(ptrs.current.size===0) gesture.current=null; }
-    function onWheel(e){ const r=wrapRef.current.getBoundingClientRect(); const mx=e.clientX-r.left, my=e.clientY-r.top;
-      const ns=Math.max(0.3,Math.min(8,view.s*(e.deltaY<0?1.12:0.9))); setView(v=>({s:ns,x:mx-(mx-v.x)*(ns/v.s),y:my-(my-v.y)*(ns/v.s)})); }
+      if(ptrs.current.size>=2&&g.current.pinch){ const [a,b]=[...ptrs.current.values()], p=g.current.pinch;
+        const [mx,my]=rel((a.x+b.x)/2,(a.y+b.y)/2); const ns=p.v.s*Math.hypot(a.x-b.x,a.y-b.y)/p.d;
+        setV({s:ns,x:mx-(p.mx-p.v.x)*(ns/p.v.s),y:my-(p.my-p.v.y)*(ns/p.v.s)}); return; }
+      if(ptrs.current.size===1){ g.current.moved=Math.max(g.current.moved,Math.hypot(e.clientX-g.current.sx,e.clientY-g.current.sy));
+        if(g.current.moved>(g.current.mouse?5:22)){ const dx=e.clientX-prev.x, dy=e.clientY-prev.y; const v=viewR.current; setV({...v,x:v.x+dx,y:v.y+dy}); } } }
+    function onUp(e){ ptrs.current.delete(e.pointerId);
+      if(ptrs.current.size===1&&g.current){ g.current.pinch=null; }          // one finger left after a pinch: keep it a move, never a fill
+      if(ptrs.current.size===0&&g.current){ const G=g.current; g.current=null;
+        if(e.type!=="pointercancel"&&!G.multi&&G.moved<(G.mouse?5:22)&&Date.now()-G.t<800){ const [ix,iy]=toImg(e.clientX,e.clientY); doFill(ix,iy); } } }
+    function onWheel(e){ const [mx,my]=rel(e.clientX,e.clientY); const v=viewR.current;
+      const ns=v.s*(e.deltaY<0?1.12:0.9); setV({s:ns,x:mx-(mx-v.x)*(ns/v.s),y:my-(my-v.y)*(ns/v.s)}); }
 
     // ---- export ----
     function flatCanvas(){ const c=document.createElement("canvas"); c.width=page.w; c.height=page.h; compose(c.getContext("2d"),baseRef.current,fillRef.current,page.w,page.h); return c; }
@@ -490,7 +519,7 @@
     }
 
     const activeG=active?groupOf(active):null;
-    const suggestions=useMemo(()=>SB.suggestFor([...usesByCount(history),...tray],stock,tray),[history,tray,stock]);
+    const suggestions=useMemo(()=>SB.bestFits([...usesByCount(history),...tray],stock,5,true),[history,tray,stock]);
 
     return (
       <div className="sb-editor">
@@ -498,6 +527,7 @@
           <button className="sb-iconbtn" onClick={onClose} aria-label="Back to pages"><Icon n="back"/></button>
           <h1 className="sb-ed-title">{page.name}</h1>
           <button className="sb-iconbtn" onClick={undo} disabled={!history.length} aria-label="Undo"><Icon n="undo"/></button>
+          <button className="sb-iconbtn" onClick={redo} disabled={!future.length} aria-label="Redo"><Icon n="redo"/></button>
           <button className="sb-iconbtn" onClick={()=>setColorMode(true)} aria-label="Coloring mode"><Icon n="eye"/></button>
           <button className="sb-iconbtn" onClick={()=>setMoreOpen(true)} aria-label="More"><Icon n="more"/></button>
         </header>
@@ -538,11 +568,12 @@
                   <span style={{background:g.hex}}/>{g.code}
                 </button>
               ))}
+              <button className="sb-sugg more" onClick={()=>setPickOpen(true)}>More…</button>
             </div>
           )}
         </div>
 
-        <SB.MarkerPicker open={pickOpen||!!replaceUid} title={replaceUid?"Change everywhere to…":"Add a marker"}
+        <SB.MarkerPicker open={pickOpen||!!replaceUid} title={replaceUid?"Change everywhere to…":"Add a marker"} fitUids={[...usesByCount(history),...tray]}
           onClose={()=>{setPickOpen(false);setReplaceUid(null);}}
           onPick={g=>{ const u=SB.pickUid(g,stock); if(replaceUid){ replaceEverywhere(replaceUid,u); setReplaceUid(null); } else { selectUid(u); setPickOpen(false); } }}/>
 

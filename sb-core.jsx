@@ -141,6 +141,36 @@
     return out;
   }
 
+  // ---------- "fits this page" ranking ----------
+  // A marker fits when its hue sits in a harmony with a hue already on the page
+  // (same / neighbor / complement / split / triad) AND it shares the page's softness —
+  // a cohesive palette's colors share a similar intensity, so tonal match counts as much as hue.
+  const HARM=[[0,0],[30,3],[-30,3],[180,6],[150,8],[-150,8],[120,10],[-120,10]];
+  function pageContext(uids){
+    const gs=[...new Set((uids||[]).map(u=>groupOf(u)).filter(Boolean))];
+    const cs=gs.map(g=>g._lch[1]).sort((a,b)=>a-b), ls=gs.map(g=>g._lch[0]);
+    return { gs, keys:new Set(gs.map(g=>g.key)), hues:gs.filter(g=>g._lch[1]>=10).map(g=>g._lch[2]),
+      cMed:cs.length?cs[Math.floor(cs.length/2)]:30, lMin:ls.length?Math.min(...ls):20, lMax:ls.length?Math.max(...ls):95 };
+  }
+  function fitScore(g,ctx){
+    const [L,C,h]=g._lch;
+    let hc;
+    if(C<10) hc=12;                                   // greys/near-neutrals go with most things
+    else if(!ctx.hues.length) hc=20;
+    else { hc=Infinity; for(const ph of ctx.hues) for(const [o,pen] of HARM){ const d=hueDiff(h,wrap(ph+o))+pen; if(d<hc) hc=d; } }
+    const tonal=Math.abs(C-ctx.cMed)*0.6;
+    const lc=L<ctx.lMin-10?(ctx.lMin-10-L)*0.4:L>ctx.lMax+10?(L-ctx.lMax-10)*0.4:0;
+    const twin=ctx.gs.some(p=>dist(p._lab,g._lab)<7)?18:0;  // near-copies of what's already there aren't helpful
+    return hc+tonal+lc+twin;
+  }
+  function bestFits(uids,stock,n=5,diverse=true){
+    const ctx=pageContext(uids); if(!ctx.gs.length) return [];
+    const ranked=GROUPS.filter(g=>!ctx.keys.has(g.key)&&usable(g,stock)).map(g=>({g,s:fitScore(g,ctx)})).sort((a,b)=>a.s-b.s);
+    const out=[], fams=new Set();
+    for(const r of ranked){ if(diverse&&fams.has(r.g.family)) continue; fams.add(r.g.family); out.push(r.g); if(out.length>=n) break; }
+    return out;
+  }
+
   // ---------- palette from a photo ----------
   function extractFromImage(img,stock,k=7){
     const S=72, c=document.createElement("canvas");
@@ -175,7 +205,8 @@
     pages:'<path d="M6 3h9l5 5v13H6z"/><path d="M15 3v5h5"/>',
     markers:'<rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/>',
     palettes:'<circle cx="7" cy="12" r="3"/><circle cx="17" cy="12" r="3"/><circle cx="12" cy="6" r="3"/><circle cx="12" cy="18" r="3"/>',
-    back:'<path d="M15 5l-7 7 7 7"/>', undo:'<path d="M9 7L4 12l5 5"/><path d="M4 12h10a6 6 0 0 1 0 12h-3"/>',
+    back:'<path d="M15 5l-7 7 7 7"/>', undo:'<path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>',
+    redo:'<path d="M15 14l5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/>',
     eye:'<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
     more:'<circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/>',
     plus:'<path d="M12 5v14M5 12h14"/>', camera:'<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="4"/>',
@@ -259,32 +290,52 @@
     );
   }
 
-  // search + grid of every ink you own; returns a group
-  function MarkerPicker({open,onClose,onPick,title="Add a marker",exclude}){
+  // search + grid of every ink you own; returns a group. With fitUids (the page's markers)
+  // it opens on "Best with this page" and lets you pick a color family first.
+  function MarkerPicker({open,onClose,onPick,title="Add a marker",exclude,fitUids}){
     const [q,setQ]=useState("");
+    const [fam,setFam]=useState("all");
     const [stock]=window.useStock();
-    const list=useMemo(()=>{
-      const t=q.trim().toLowerCase(); const ex=new Set(exclude||[]);
+    const ctx=useMemo(()=>fitUids&&fitUids.length?pageContext(fitUids):null,[fitUids]);
+    const t=q.trim().toLowerCase();
+    const {best,rest}=useMemo(()=>{
+      const ex=new Set(exclude||[]);
       let l=GROUPS.filter(g=>!ex.has(g.key));
+      if(fam!=="all") l=l.filter(g=>g.family===fam);
       if(t) l=l.filter(g=>(g.code+" "+g.old+" "+g.name+" "+g.oldName+" "+g.brand).toLowerCase().includes(t));
-      return l.slice().sort((a,b)=>CQ.FAMILY_ORDER.indexOf(a.family)-CQ.FAMILY_ORDER.indexOf(b.family)||b._lch[0]-a._lch[0]);
-    },[q,exclude]);
-    useEffect(()=>{ if(!open) setQ(""); },[open]);
+      const byFam=(a,b)=>CQ.FAMILY_ORDER.indexOf(a.family)-CQ.FAMILY_ORDER.indexOf(b.family)||b._lch[0]-a._lch[0];
+      if(!ctx||t) return {best:[],rest:l.slice().sort(byFam)};
+      const best=l.filter(g=>!ctx.keys.has(g.key)&&usable(g,stock)).map(g=>({g,s:fitScore(g,ctx)})).sort((a,b)=>a.s-b.s).slice(0,fam==="all"?10:6).map(x=>x.g);
+      const bk=new Set(best.map(g=>g.key));
+      return {best,rest:l.filter(g=>!bk.has(g.key)).sort(byFam)};
+    },[t,fam,exclude,ctx,stock]);
+    useEffect(()=>{ if(!open){ setQ(""); setFam("all"); } },[open]);
+    const famsPresent=CQ.FAMILY_ORDER.filter(f=>GROUPS.some(g=>g.family===f));
+    const Tile=({g})=>{ const st=groupStatus(g,stock); return (
+      <button className="sb-tile" onClick={()=>onPick(g)} aria-label={`${codeText(g)} ${g.name}`}>
+        <span className={"sb-tile-sw"+(st==="out"?" dim":"")} style={{background:g.hex}}>{st&&<span className={"sb-dot "+st}/>}</span>
+        <span className="sb-tile-code">{g.code}</span>
+        <span className="sb-tile-old">{g.old||" "}</span>
+      </button>); };
+    const FAM_SHORT={red:"Reds",orange:"Oranges",yellow:"Yellows",lime:"Limes",green:"Greens",teal:"Teals",blue:"Blues",purple:"Purples",pink:"Pinks",brown:"Browns",neutral:"Greys"};
+    const famLabel=f=>FAM_SHORT[f]||CQ.FAMILY_LABEL[f]||f;
     return (
       <Sheet open={open} onClose={onClose} title={title} tall>
         <label className="sb-search"><Icon n="search" size={18}/>
           <input value={q} onChange={e=>setQ(e.target.value)} placeholder="Code, old code or name" aria-label="Search markers"/>
+          {q && <button className="sb-clear" onClick={()=>setQ("")} aria-label="Clear search"><Icon n="close" size={16}/></button>}
         </label>
-        <div className="sb-grid sb-grid-sm">
-          {list.map(g=>{ const st=groupStatus(g,stock);
-            return (
-              <button key={g.key} className="sb-tile" onClick={()=>onPick(g)} aria-label={`${codeText(g)} ${g.name}`}>
-                <span className={"sb-tile-sw"+(st==="out"?" dim":"")} style={{background:g.hex}}>{st&&<span className={"sb-dot "+st}/>}</span>
-                <span className="sb-tile-code">{g.code}</span>
-                <span className="sb-tile-old">{g.old||" "}</span>
-              </button>
-            ); })}
+        <div className="sb-filters" role="tablist" aria-label="Color family">
+          <button className={"sb-fchip"+(fam==="all"?" on":"")} onClick={()=>setFam("all")}>All</button>
+          {famsPresent.map(f=><button key={f} className={"sb-fchip"+(fam===f?" on":"")} onClick={()=>setFam(f)}>{famLabel(f)}</button>)}
         </div>
+        {best.length>0 && <>
+          <h3 className="sb-label">Best with this page{fam!=="all"?` · ${famLabel(fam)}`:""}</h3>
+          <div className="sb-grid sb-grid-sm" style={{marginTop:0}}>{best.map(g=><Tile key={g.key} g={g}/>)}</div>
+          <h3 className="sb-label">{fam==="all"?"Everything":`All ${famLabel(fam).toLowerCase()}`}</h3>
+        </>}
+        <div className="sb-grid sb-grid-sm" style={best.length?{marginTop:0}:undefined}>{rest.map(g=><Tile key={g.key} g={g}/>)}</div>
+        {!best.length && !rest.length && <div className="sb-empty">No marker matches.</div>}
       </Sheet>
     );
   }
@@ -319,6 +370,6 @@
   Object.assign(window,{SB:{
     GROUPS, groupOf, codeText, groupStatus, usable, pickUid, snap, shadeRecs, harmonyMap, SCHEMES, suggestFor,
     extractFromImage, readImageFile, rgbToLab, lchToLab, dist, isEarthy,
-    Icon, Sheet, Chip, ShadeCard, MarkerPicker, useLongPress, Toast, useToast, savePalette,
+    Icon, Sheet, Chip, ShadeCard, MarkerPicker, bestFits, pageContext, fitScore, useLongPress, Toast, useToast, savePalette,
   }});
 })();
