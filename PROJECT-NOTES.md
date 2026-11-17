@@ -109,6 +109,9 @@ shared UI), `sb-pages.jsx`, `sb-markers.jsx`, `sb-palettes.jsx`; the App shell i
 - "Best with this page" (`fitScore` in sb-core): harmony with hues already on the page
   (same/neighbor/complement/split/triad) + tonal match (similar chroma) + lightness range.
   Used by the + picker (with family filters) and the "Goes with this page" row.
+- SFAIH display rule: show the CAP (old code + SFAIH name, e.g. "B340 Lavender Mist") first;
+  the Ohuhu 2025 match ("BV05 Cornflower") is only a small reference. In inventory.js the SFAIH
+  `name` is the cap name and `oldName` is the Ohuhu name (set flag `capCodes:true`); uids unchanged.
 - Same-ink grouping: Ohuhu markers with the same `code` are ONE ink across sets (×2 badge);
   SFAIH inks are separate even when codes match.
 - Design rule from Maggie: no beginner tips or reminders of basics (e.g. acrylic highlights).

@@ -32,7 +32,10 @@
     const m=new Map();
     ALL.forEach(c=>{
       const key=(c.setId==="sfaih"?"sf:":"oh:")+c.code;
-      if(!m.has(key)) m.set(key,{key, code:c.code, old:c.old||"", name:c.name, oldName:c.oldName||"", hex:c.hex,
+      // SFAIH: show what's printed on the cap first (B340 Lavender Mist); the Ohuhu 2025
+      // equivalent (BV05 Cornflower) rides along in old/oldName as a small reference.
+      const sf=c.setId==="sfaih"&&c.old;
+      if(!m.has(key)) m.set(key,{key, code:sf?c.old:c.code, old:sf?c.code:(c.old||""), name:c.name, oldName:c.oldName||"", hex:c.hex,
         _lab:c._lab, _lch:c._lch, brand:brandOf(c.setId), family:CQ.familyOf(c), members:[]});
       m.get(key).members.push(c);
     });
@@ -41,6 +44,8 @@
   const GROUP_BY_UID={}; GROUPS.forEach(g=>g.members.forEach(c=>{ GROUP_BY_UID[c.uid]=g; }));
   const groupOf = uid => GROUP_BY_UID[uid]||null;
   const codeText = g => g ? (g.old ? `${g.code} / ${g.old}` : g.code) : "";
+  // second line under a name: Ohuhu's renamed markers show their old name; SFAIH shows its Ohuhu match
+  const altName = g => !g ? "" : g.brand==="SFAIH" ? (g.old?`Ohuhu ${g.old}${g.oldName?" "+g.oldName:""}`:"") : (g.oldName&&g.oldName!==g.name?`was ${g.oldName}`:"");
 
   // stock: per physical marker (uid). A group is "out" only when every copy is out.
   function groupStatus(g,stock){
@@ -278,7 +283,7 @@
           <div className="sb-shade-base-txt">
             <span className="sb-eyebrow">{context?context+" · base":"Base"}</span>
             <span className="sb-shade-code">{codeText(group)}</span>
-            <span className="sb-muted">{group.name}{group.oldName&&group.oldName!==group.name?` · was ${group.oldName}`:""}</span>
+            <span className="sb-muted">{group.name}{altName(group)?` · ${altName(group)}`:""}</span>
           </div>
         </div>}
         {recs.same.length>0 && <div className="sb-label">Shadow · same family</div>}
@@ -368,7 +373,7 @@
   function useToast(){ const [m,setM]=useState(""); const t=useRef(null); const show=s=>{ setM(s); clearTimeout(t.current); t.current=setTimeout(()=>setM(""),1800); }; return [m,show]; }
 
   Object.assign(window,{SB:{
-    GROUPS, groupOf, codeText, groupStatus, usable, pickUid, snap, shadeRecs, harmonyMap, SCHEMES, suggestFor,
+    GROUPS, groupOf, codeText, altName, groupStatus, usable, pickUid, snap, shadeRecs, harmonyMap, SCHEMES, suggestFor,
     extractFromImage, readImageFile, rgbToLab, lchToLab, dist, isEarthy,
     Icon, Sheet, Chip, ShadeCard, MarkerPicker, bestFits, pageContext, fitScore, useLongPress, Toast, useToast, savePalette,
   }});

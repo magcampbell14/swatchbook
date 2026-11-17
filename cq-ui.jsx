@@ -39,7 +39,7 @@ const ALL_BY_UID = {}; ALL.forEach(c=>{ ALL_BY_UID[c.uid]=c; });
 // Both codes, new first: "Y46 / YR250". Works on live colors AND on saved-palette
 // snapshots (which may predate the audit) by looking the color up by uid.
 function liveColor(c){ return (c&&c.uid&&ALL_BY_UID[c.uid])||c||{}; }
-function codeLabel(c){ const l=liveColor(c); return l.old ? l.code+" / "+l.old : (l.code||""); }
+function codeLabel(c){ const l=liveColor(c); if(l.setId==="sfaih"&&l.old) return l.old+" / "+l.code; return l.old ? l.code+" / "+l.old : (l.code||""); }  // SFAIH: cap code first
 function oldNameOf(c){ const l=liveColor(c); return l.oldName||""; }
 function hexOf(m){ const l=liveColor(m); return l.hex||(m&&m.hex)||"#333"; }
 window.hexOf=hexOf; window.codeLabel=codeLabel; window.oldNameOf=oldNameOf; window.liveColor=liveColor;

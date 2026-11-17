@@ -102,7 +102,7 @@
           {g.members.length>1 && <span className="sb-badge">×{g.members.length}</span>}
         </span>
         <span className="sb-tile-code">{g.code}</span>
-        <span className="sb-tile-old">{g.old||(g.brand==="SFAIH"?"SFAIH":" ")}</span>
+        <span className="sb-tile-old">{g.brand==="SFAIH"?"SFAIH":(g.old||"\u00a0")}</span>
       </button>
     );
   }
@@ -114,8 +114,10 @@
           <span className="sb-md-sw" style={{background:g.hex}}/>
           <div className="sb-md-txt">
             <b className="sb-md-name">{g.name}</b>
-            {g.oldName && g.oldName!==g.name && <span className="sb-muted">was {g.old} {g.oldName}</span>}
-            <span className="sb-muted sm">{g.brand}{g.brand==="SFAIH"?" — cap shows the old code":""}</span>
+            {g.brand==="SFAIH"
+              ? (g.old && <span className="sb-muted">Matches Ohuhu {g.old}{g.oldName?` ${g.oldName}`:""}</span>)
+              : (g.oldName && g.oldName!==g.name && <span className="sb-muted">was {g.old} {g.oldName}</span>)}
+            <span className="sb-muted sm">{g.brand==="SFAIH"?"SFAIH Pastel":g.brand}</span>
           </div>
         </div>
         <div className="sb-label">Your {g.members.length>1?"copies":"marker"}</div>

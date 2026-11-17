@@ -504,7 +504,7 @@
       x.font="400 19px Inter, sans-serif"; x.fillStyle="#6B6359"; x.fillText(`${used.length} marker${used.length===1?"":"s"}`,padX,y+58); y+=78;
       used.forEach(g=>{ x.fillStyle=g.hex; x.fillRect(padX,y,46,46); x.fillStyle="#2B2622"; x.font="600 23px Inter, sans-serif";
         x.fillText(codeText(g),padX+64,y+22); x.font="400 18px Inter, sans-serif"; x.fillStyle="#6B6359";
-        x.fillText(`${g.name}${g.oldName&&g.oldName!==g.name?" · was "+g.oldName:""} · ${g.members.map(m=>m.setName).join(", ")}`,padX+64,y+44); y+=rowH; });
+        x.fillText(`${g.name}${SB.altName(g)?" · "+SB.altName(g):""} · ${g.members.map(m=>m.setName).join(", ")}`,padX+64,y+44); y+=rowH; });
       return c;
     }
     async function share(canvas,suffix){
