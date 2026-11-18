@@ -30,6 +30,10 @@
       <div className="sb-screen">
         <header className="sb-head"><h1 className="sb-h1">Palettes</h1></header>
         <div className="sb-tools">
+          <button className="sb-option" onClick={()=>setTool("vibe")}>
+            <span className="sb-option-ic"><Icon n="spark"/></span>
+            <span className="sb-option-txt"><b>Make a palette</b><span>Pick a vibe, keep what you like, shuffle the rest</span></span>
+          </button>
           <button className="sb-option" onClick={()=>setTool("photo")}>
             <span className="sb-option-ic"><Icon n="photo"/></span>
             <span className="sb-option-txt"><b>From a photo</b><span>Matched to your markers</span></span>
@@ -56,11 +60,20 @@
           {cur && <PaletteDetail p={cur} onRename={n=>setSaved(list.map(x=>x.ts===cur.ts?{...x,name:n}:x))}
             onDelete={()=>{ setSaved(list.filter(x=>x.ts!==cur.ts)); setOpen(null); }} showToast={showToast}/>}
         </Sheet>
+        <Sheet open={tool==="vibe"} onClose={()=>setTool(null)} title="Make a palette" tall>
+          {tool==="vibe" && <MakeTool onSave={(uids,label)=>save(uids,"Vibe",label+" palette")}/>}
+        </Sheet>
         <PhotoTool open={tool==="photo"} onClose={()=>setTool(null)} onSave={uids=>save(uids,"Photo","From a photo")}/>
         <BetweenTool open={tool==="between"} seed={betweenSeed} onClose={()=>{ setTool(null); clearSeed&&clearSeed(); }} onSave={(uids,note)=>save(uids,"Gradient",note)}/>
         <SB.Toast msg={toast}/>
       </div>
     );
+  }
+
+  function MakeTool({onSave}){
+    const [stock]=window.useStock();
+    const start=useMemo(()=>({vibe:"pastel"}),[]);
+    return <SB.PaletteTuner stock={stock} mode="vibe" start={start} useLabel="Save palette" onUse={onSave}/>;
   }
 
   function PaletteDetail({p,onRename,onDelete,showToast}){

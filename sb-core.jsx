@@ -166,7 +166,10 @@
     const tonal=Math.abs(C-ctx.cMed)*0.6;
     const lc=L<ctx.lMin-10?(ctx.lMin-10-L)*0.4:L>ctx.lMax+10?(L-ctx.lMax-10)*0.4:0;
     const twin=ctx.gs.some(p=>dist(p._lab,g._lab)<7)?18:0;  // near-copies of what's already there aren't helpful
-    return hc+tonal+lc+twin;
+    // Ou & Luo pair harmony with what's already on the page (engine loads after this file)
+    const P=window.SB&&window.SB.PAL; let hh=0;
+    if(P&&ctx.gs.length){ let s=0; ctx.gs.forEach(p=>{ s+=P.ouLuo(p._lab,g._lab); }); hh=-14*(s/ctx.gs.length); }
+    return hc+tonal+lc+twin+hh;
   }
   function bestFits(uids,stock,n=5,diverse=true){
     const ctx=pageContext(uids); if(!ctx.gs.length) return [];
@@ -226,6 +229,7 @@
     edit:'<path d="M4 20h4L19 9l-4-4L4 16z"/>', copy:'<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V4H4v12h4"/>',
     fit:'<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>', drop:'<path d="M12 3s6 7 6 11a6 6 0 0 1-12 0c0-4 6-11 6-11z"/>',
     blend:'<circle cx="8" cy="12" r="5"/><circle cx="16" cy="12" r="5"/>',
+    lock:'<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
   };
   function Icon({n,size=22,color="currentColor",label,stroke=1.8}){
     const a=label?{role:"img","aria-label":label}:{"aria-hidden":"true"};

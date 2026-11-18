@@ -245,6 +245,36 @@ input{font-family:inherit;}
 .sb-toast{position:fixed;left:50%;bottom:calc(var(--nav-h) + var(--safe-b) + 18px);transform:translateX(-50%);z-index:80;background:var(--ink);color:var(--paper);
   padding:10px 16px;border-radius:14px;font-size:14px;font-weight:500;box-shadow:0 6px 20px rgba(43,38,34,.25);max-width:88vw;}
 .sb-editor .sb-toast{bottom:calc(150px + var(--safe-b));}
+
+/* shuffle & tune */
+.sb-pillbtn.on{background:var(--ink);color:var(--paper);border-color:var(--ink);}
+.sb-pillbtn:disabled,.sb-btn:disabled{opacity:.45;}
+.sb-scrollrow{display:flex;gap:8px;overflow-x:auto;padding:2px 0 6px;scrollbar-width:none;-webkit-overflow-scrolling:touch;}
+.sb-scrollrow::-webkit-scrollbar{display:none;}
+.sb-tuner-back{display:flex;align-items:center;gap:4px;margin:0 0 8px;padding:6px 0;}
+.sb-tuner-blurb{margin:8px 0 10px;}
+.sb-tuner-chips{display:grid;grid-template-columns:repeat(auto-fill,minmax(78px,1fr));gap:10px;}
+.sb-tchip{display:flex;flex-direction:column;align-items:center;gap:2px;background:none;border:none;padding:0;color:var(--ink);text-align:center;min-width:0;}
+.sb-tchip-sw{position:relative;width:100%;aspect-ratio:1;border-radius:16px;border:1px solid rgba(43,38,34,.13);}
+.sb-tchip.locked .sb-tchip-sw{box-shadow:0 0 0 2px var(--paper),0 0 0 4px var(--ink);}
+.sb-tchip-lock{position:absolute;top:6px;right:6px;width:24px;height:24px;border-radius:12px;background:var(--ink);color:var(--paper);display:flex;align-items:center;justify-content:center;}
+.sb-tchip b{font-size:13px;margin-top:4px;} .sb-tchip .sm{color:var(--muted);line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;}
+.sb-tuner-main{margin-top:14px;}
+.sb-nudges{display:flex;flex-wrap:wrap;gap:8px;}
+.sb-label .sb-link{display:inline;margin:0 0 0 6px;padding:0;text-transform:none;letter-spacing:0;}
+.sb-tuner-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-top:16px;}
+.sb-viberow{display:flex;align-items:center;gap:6px;border:1.5px solid var(--line);border-radius:14px;background:var(--card);padding-right:4px;}
+.sb-viberow-main{flex:1;min-width:0;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;background:none;border:none;text-align:left;color:var(--ink);}
+.sb-viberow-txt{display:flex;flex-direction:column;min-width:0;}
+.sb-viberow-txt .sm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.sb-spin{color:var(--muted);}
+.sb-around-head .sb-spin{margin-left:auto;width:36px;height:36px;}
+.sb-around-head{align-items:center;}
+.sb-scheme{position:relative;}
+.sb-scheme-pick{display:flex;flex-direction:column;gap:5px;background:none;border:none;padding:0;text-align:left;color:var(--ink);width:100%;}
+.sb-scheme-img.busy img{opacity:.55;}
+.sb-scheme-spin{position:absolute;top:14px;right:14px;width:34px;height:34px;border-radius:17px;border:1px solid var(--line);background:var(--card);display:flex;align-items:center;justify-content:center;color:var(--ink);}
+@media (max-width:420px){ .sb-viberow .sb-strip span{width:13px;height:13px;} }
 </style>
 </head>
 <body>
@@ -261,6 +291,7 @@ input{font-family:inherit;}
 <!-- shared helpers (storage, merged inventory, codes) + v2 screens -->
 <script type="text/babel" data-presets="react" src="cq-ui.jsx"></script>
 <script type="text/babel" data-presets="react" src="sb-core.jsx"></script>
+<script type="text/babel" data-presets="react" src="sb-palette.jsx"></script>
 <script type="text/babel" data-presets="react" src="sb-pages.jsx"></script>
 <script type="text/babel" data-presets="react" src="sb-markers.jsx"></script>
 <script type="text/babel" data-presets="react" src="sb-palettes.jsx"></script>

@@ -118,3 +118,24 @@ shared UI), `sb-pages.jsx`, `sb-markers.jsx`, `sb-palettes.jsx`; the App shell i
 - SHELVED, not deleted (code + their saved data kept): Prompts, Studio, Learn and the v1
   screens — `cq-ask.jsx`, `cq-learn.jsx`, `cq-studio.jsx`, `cq-screens.jsx`,
   `cq-palettes.jsx`, `cq-pages.jsx`, `cq-sketch.js`, `prompts.js`, `mixing.js`.
+
+## 8. Palette engine (`sb-palette.jsx`, Nov 2026 harmony audit)
+- **Every palette comes from `SB.PAL`**: starter vibes, "Palettes with X", New version (schemes + vibes),
+  Palettes tab → Make a palette, and the "goes with this page" ranking (`fitScore` adds Ou–Luo).
+  `CQ.build`, `SB.harmonyMap`/`SB.SCHEMES` are no longer used by the UI (kept for reference).
+- **Vibes are color stories** (`VIBES`): parts with hue/L/C ranges in CIELAB LCh, most important first.
+  Fixed-story vibes (golden, blue, fresh, earthy, vintage) always use their first 3 parts, then shuffle the rest.
+  Relative vibes (pastel, moody, vibrant) build from a base hue + color scheme (`SCHEME_OFFS`).
+  Vibrant uses `L:"cusp"` = the lightness where HER markers are most saturated at that hue (`CUSP`).
+- **Generator**: ~40 seeded candidates → snap each slot with CIEDE2000 (no ink twice, never "out")
+  → score = harmony (Ou & Luo 2006 CH, averaged over pairs) − target misses − out-of-band − near-twins
+  − overlap with the last shuffle (`avoid`) − mud (light vibes). Scheme is fixed per shuffle (seeded),
+  not per try, so "Mix it up" really rotates schemes.
+- **Recolor (versions)**: schemes keep each color's L and C and squeeze the page's hue layout into the
+  scheme (sky stays different from grass); one-hue pages get spread across the scheme by use rank.
+  Vibes map the page's lights→darks onto a generated vibe palette. `seed>1` = a "different take".
+  "Keep browns & greys" holds only real browns (L<72) and greys — pale creams/peaches move.
+- **Tuner** (`SB.PaletteTuner`): tap to lock, Shuffle/Back (history 20), scheme, Warmer/Cooler/
+  Lighter/Deeper/Softer/Bolder (same seed, so it adjusts instead of reshuffling), 4–9 colors,
+  Include a marker (MarkerPicker → onPick receives a GROUP, not a uid).
+- Audit harness: /home/claude/scripts/audit_*.js + audit_run.py + audit_sheet.py (not in repo).

@@ -24,6 +24,7 @@ const PRECACHE = [
   "cq-engine.js",
   "cq-ui.jsx",
   "sb-core.jsx",
+  "sb-palette.jsx",
   "sb-pages.jsx",
   "sb-markers.jsx",
   "sb-palettes.jsx",

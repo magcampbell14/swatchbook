@@ -280,24 +280,13 @@
   }
 
   // ---------- New page: how to start ----------
-  const RECIPES={ golden:{h:62,harm:"analogous"}, pastel:{h:325,harm:"triadic",lo:52}, blue:{h:245,harm:"analogous"},
-    moody:{h:300,harm:"complementary"}, vibrant:{h:20,harm:"triadic"}, fresh:{h:160,harm:"analogous"},
-    earthy:{h:55,harm:"splitComplement"}, vintage:{h:28,harm:"splitComplement"} };
   function StartSheet({page,alt,onToggleClean,onClose,onStart}){
     const [stage,setStage]=useState("choose");
-    const [shuffle,setShuffle]=useState(0);
+    const [tune,setTune]=useState(null);
     const [stock]=window.useStock();
     const photoRef=useRef(null);
     const [busy,setBusy]=useState(false);
-    useEffect(()=>{ if(page) setStage("choose"); },[page&&page.id]);
-    const moods=useMemo(()=>{
-      if(stage!=="moods") return [];
-      const pool=window.ALL.filter(c=>(stock[c.uid]||"ok")!=="out");
-      // each vibe gets its own key hue + harmony (before, every vibe started from hue 0 → all pinks)
-      return CQ.MOOD_ORDER.map((m,i)=>{ const rc=RECIPES[m]||{h:i*45,harm:"analogous"};
-        const r=CQ.build(pool,{mood:m,harmony:rc.harm,baseHue:(rc.h+shuffle*41)%360,count:7,lo:rc.lo});
-        return {id:m,label:CQ.MOODS[m].label,uids:[...new Set(r.colors.map(c=>c.marker&&c.marker.uid).filter(Boolean))]}; });
-    },[stage,stock,shuffle]);
+    useEffect(()=>{ if(page){ setStage("choose"); setTune(null); } },[page&&page.id]);
     async function onPhoto(e){
       const f=e.target.files&&e.target.files[0]; e.target.value=""; if(!f||!page) return;
       setBusy(true);
@@ -305,7 +294,7 @@
       catch{} finally{ setBusy(false); }
     }
     return (
-      <Sheet open={!!page} onClose={onClose} title={stage==="moods"?"Pick a vibe":"Start colors from"}>
+      <Sheet open={!!page} onClose={onClose} title={stage==="moods"?"Pick a vibe":stage==="tune"?"Shuffle & tune":"Start colors from"} tall={stage!=="choose"}>
         <input ref={photoRef} type="file" accept="image/*" hidden onChange={onPhoto}/>
         {stage==="choose" && page && <div className="sb-startprev">
           <img src={page.img} alt="Your page, ready to color"/>
@@ -329,16 +318,12 @@
             <span className="sb-option-txt"><b>Nothing — wing it</b><span>Suggestions appear as you fill</span></span>
           </button>
         </div>}
-        {stage==="moods" && <div className="sb-stack">
-          {moods.map(m=>(
-            <button key={m.id} className="sb-moodrow" onClick={()=>onStart(page.id,m.uids,"mood")}>
-              <b>{m.label}</b>
-              <span className="sb-strip">{m.uids.map(u=><span key={u} style={{background:uidHex(u)}}/>)}</span>
-            </button>
-          ))}
-          <div className="sb-btnrow"><button className="sb-btn sb-btn-line" onClick={()=>setShuffle(x=>x+1)}><Icon n="spark" size={18}/><span>Shuffle</span></button>
-            <button className="sb-btn sb-btn-line" onClick={()=>setStage("choose")}>Back</button></div>
+        {(stage==="moods"||stage==="tune") && <div hidden={stage!=="moods"}>
+          <SB.VibeList stock={stock} onOpen={(v,r)=>{ setTune({vibe:v,keys:r.keys,seed:r.seed}); setStage("tune"); }}/>
+          <button className="sb-link" onClick={()=>setStage("choose")}>Back</button>
         </div>}
+        {stage==="tune" && tune && <SB.PaletteTuner key={tune.vibe+tune.seed} stock={stock} mode="vibe" start={tune} useLabel="Start with these"
+          onBack={()=>setStage("moods")} onUse={uids=>onStart(page.id,uids,"mood")}/>}
       </Sheet>
     );
   }
@@ -434,11 +419,11 @@
       rebuild(hist); setCur({history:hist,tray:t,active:toUid});
       const g=groupOf(toUid); showToast(`Changed to ${g?g.code:""} everywhere`);
     }
-    function addVersion(kind,keepNeutral){
+    function addVersion(kind,keepNeutral,seed){
       const uses=[...usesByCount(history),...tray.filter(u=>!history.some(a=>a.uid===u))];
-      const map=kind==="copy"?{}:SB.harmonyMap(uses,kind,keepNeutral,stock);
+      const map=kind==="copy"?{}:SB.PAL.recolor(uses,kind,{keep:keepNeutral,stock,seed:seed||1});
       const m=u=>map[u]||u;
-      const label=kind==="copy"?"Copy":(SB.SCHEMES.find(s=>s.id===kind)||{}).label;
+      const label=kind==="copy"?"Copy":SB.PAL.versionLabel(kind);
       const same=versions.filter(v=>v.name===label||v.name.startsWith(label+" ")).length;
       const nv={id:vid(), name:same?`${label} ${same+1}`:label, history:history.map(a=>({...a,uid:m(a.uid)})),
         tray:[...new Set(tray.map(m))], active:active?m(active):null, star:false};
@@ -618,78 +603,102 @@
 
   // ---------- palettes built around one marker ----------
   const AROUND=[["analogous","Analogous","Neighbors — calm"],["complementary","Complementary","Opposite accents"],
-    ["splitComplement","Split-comp","Contrast, softer"],["triadic","Triadic","Three-way balance"],["monochrome","Monochrome","One hue, light → dark"]];
+    ["split","Split-comp","Contrast, softer"],["triadic","Triadic","Three-way balance"],["mono","One hue","Light → dark of one color"]];
   function AroundSheet({anchor,onClose,onAdd,onTry,stock,hasOthers}){
     const [feel,setFeel]=useState("balanced");
-    const [spin,setSpin]=useState(0);
+    const [seeds,setSeeds]=useState({});
+    const [tune,setTune]=useState(null);
+    const prevRef=useRef({});
+    useEffect(()=>{ setTune(null); setSeeds({}); prevRef.current={}; },[anchor]);
     const g=anchor?groupOf(anchor):null;
     const opts=useMemo(()=>{
       if(!anchor) return [];
-      const pool=window.ALL.filter(c=>(stock[c.uid]||"ok")!=="out"||c.uid===anchor);
-      return AROUND.map(([h,label,sub])=>{ const r=CQ.build(pool,{anchors:[anchor],harmony:h,mood:feel,count:6,reseed:spin,lo:feel==="pastel"?50:undefined});
-        const uids=[...new Set(r.colors.map(c=>c.marker&&c.marker.uid).filter(Boolean))];
-        if(!uids.includes(anchor)) uids.unshift(anchor);
-        return {h,label,sub,uids}; });
-    },[anchor,feel,spin,stock]);
+      return AROUND.map(([h,label,sub])=>{ const seed=seeds[h]||1;
+        const r=SB.PAL.around(anchor,h,feel,{seed,stock,avoid:prevRef.current[h]||null});
+        return {h,label,sub,uids:r?r.uids:[anchor],keys:r?r.keys:[],seed}; });
+    },[anchor,feel,seeds,stock]);
+    function spin(h){ const o=opts.find(x=>x.h===h); prevRef.current[h]=o&&o.keys; setSeeds(s=>({...s,[h]:SB.PAL.newSeed()})); }
+    function spinAll(){ opts.forEach(o=>{ prevRef.current[o.h]=o.keys; }); setSeeds(Object.fromEntries(AROUND.map(([h])=>[h,SB.PAL.newSeed()]))); }
     return (
-      <Sheet open={!!anchor} onClose={onClose} title={g?`Palettes with ${g.code}`:""} tall>
+      <Sheet open={!!anchor} onClose={onClose} title={g?(tune?`Shuffle & tune · ${g.code}`:`Palettes with ${g.code}`):""} tall>
+        {tune && <SB.PaletteTuner key={tune.scheme+tune.seed} stock={stock} mode="around" start={tune} useLabel="Add to page" onBack={()=>setTune(null)}
+          onUse={uids=>onAdd(uids)} secondary={hasOthers?[{label:"Try it",onClick:(u,l)=>onTry(u,l)}]:null}/>}
+        {!tune && <>
         <div className="sb-btnrow" style={{marginTop:0}}>
           <div className="sb-seg" role="group" aria-label="Feel">
             {[["pastel","Soft"],["balanced","Balanced"],["vibrant","Bold"]].map(([m,l])=><button key={m} className={feel===m?"on":""} onClick={()=>setFeel(m)}>{l}</button>)}
           </div>
-          <button className="sb-pillbtn" onClick={()=>setSpin(x=>x+1)}>Shuffle</button>
+          <button className="sb-pillbtn" onClick={spinAll}>Shuffle all</button>
         </div>
         {opts.map(o=>(
           <div key={o.h} className="sb-around">
-            <div className="sb-around-head"><b>{o.label}</b><span className="sb-muted sm">{o.sub}</span></div>
+            <div className="sb-around-head"><b>{o.label}</b><span className="sb-muted sm">{o.sub}</span>
+              <button className="sb-iconbtn sb-spin" onClick={()=>spin(o.h)} aria-label={`Shuffle ${o.label}`}><Icon n="spark" size={18}/></button></div>
             <div className="sb-around-chips">
               {o.uids.map(u=>{ const x=groupOf(u); return x && <span key={u} className={"sb-around-chip"+(u===anchor?" anchor":"")}>
                 <span className="sb-around-sw" style={{background:x.hex}}/><span className="sm">{x.code}</span></span>; })}
             </div>
             <div className="sb-btnrow" style={{marginTop:8}}>
+              <button className="sb-btn sb-btn-line" onClick={()=>setTune({anchor,scheme:o.h,feel,keys:o.keys,seed:o.seed})}>Tune</button>
               <button className="sb-btn sb-btn-line" onClick={()=>onAdd(o.uids)}>Add to page</button>
               {hasOthers && <button className="sb-btn sb-btn-ink" onClick={()=>onTry(o.uids,`${g.code} · ${o.label}`)}>Try it</button>}
             </div>
           </div>
         ))}
+        </>}
       </Sheet>
     );
   }
 
-  // ---------- New version: harmony previews ----------
+  // ---------- New version: color schemes + vibes, each with its own shuffle ----------
   function NewVersionSheet({open,onClose,page,history,tray,stock,baseRef,baseDataRef,tol,onPick}){
+    const P=SB.PAL;
     const [keep,setKeep]=useState(true);
+    const [seeds,setSeeds]=useState({});
     const [prev,setPrev]=useState({});
     const uses=useMemo(()=>[...usesByCount(history),...tray.filter(u=>!history.some(a=>a.uid===u))],[history,tray]);
+    const cards=useMemo(()=>[...P.VERSION_SCHEMES,...P.VERSION_VIBES],[]);
+    const hsig=history.length+":"+uses.join(",");
     useEffect(()=>{
-      if(!open||!baseRef.current) return; let dead=false;
-      const w=page.w,h=page.h, out={};
+      if(!open||!baseRef.current||!history.length) return; let dead=false;
+      const w=page.w,h=page.h;
       const fc=document.createElement("canvas"); fc.width=w; fc.height=h;
       const tmp=document.createElement("canvas"); tmp.width=w; tmp.height=h;
-      SB.SCHEMES.forEach(s=>{
-        const map=SB.harmonyMap(uses,s.id,keep,stock);
+      const todo=cards.filter(c=>{ const sig=`${c.id}|${seeds[c.id]||1}|${keep}|${hsig}`; return !prev[c.id]||prev[c.id].sig!==sig; });
+      let i=0;
+      function step(){
+        if(dead||i>=todo.length) return; const c=todo[i++]; const seed=seeds[c.id]||1;
+        const map=P.recolor(uses,c.id,{keep,stock,seed});
         replayInto(fc,baseDataRef.current,w,h,history.map(a=>({...a,uid:map[a.uid]||a.uid})),tol);
         compose(tmp.getContext("2d"),baseRef.current,fc,w,h);
         const sc=document.createElement("canvas"); const k=320/Math.max(w,h); sc.width=Math.round(w*k); sc.height=Math.round(h*k);
         sc.getContext("2d").drawImage(tmp,0,0,sc.width,sc.height);
-        out[s.id]={src:sc.toDataURL("image/jpeg",0.85),chips:[...new Set(uses.map(u=>map[u]||u))].slice(0,7)};
-      });
-      if(!dead) setPrev(out);
-      return ()=>{dead=true;};
-    },[open,keep,uses,stock]);
+        const item={sig:`${c.id}|${seed}|${keep}|${hsig}`,src:sc.toDataURL("image/jpeg",0.85),chips:[...new Set(uses.map(u=>map[u]||u))].slice(0,8)};
+        setPrev(p=>({...p,[c.id]:item}));
+        setTimeout(step,0);
+      }
+      const t=setTimeout(step,30);
+      return ()=>{ dead=true; clearTimeout(t); };
+    },[open,keep,hsig,stock,seeds]);
+    const Card=c=>{ const pv=prev[c.id]; const fresh=pv&&pv.sig===`${c.id}|${seeds[c.id]||1}|${keep}|${hsig}`;
+      return (
+        <div key={c.id} className="sb-scheme">
+          <button className="sb-scheme-pick" onClick={()=>onPick(c.id,keep,seeds[c.id]||1)} disabled={!history.length}>
+            <span className={"sb-scheme-img"+(fresh?"":" busy")}>{pv?<img src={pv.src} alt=""/>:<span className="sb-loading">…</span>}</span>
+            <b>{c.label}</b><span className="sb-muted sm">{c.sub}</span>
+            <span className="sb-strip sm">{(pv?pv.chips:[]).map(u=><span key={u} style={{background:uidHex(u)}}/>)}</span>
+          </button>
+          {history.length>0 && <button className="sb-scheme-spin" onClick={()=>setSeeds(s=>({...s,[c.id]:P.newSeed()}))} aria-label={`Shuffle ${c.label}`}><Icon n="spark" size={16}/></button>}
+        </div>); };
     return (
       <Sheet open={open} onClose={onClose} title="New version" tall>
         {!history.length && <div className="sb-empty">Fill a few areas first — new versions recolor what you’ve filled.</div>}
-        <div className="sb-schemes">
-          {SB.SCHEMES.map(s=>(
-            <button key={s.id} className="sb-scheme" onClick={()=>onPick(s.id,keep)} disabled={!history.length}>
-              <span className="sb-scheme-img">{prev[s.id]?<img src={prev[s.id].src} alt=""/>:<span className="sb-loading">…</span>}</span>
-              <b>{s.label}</b><span className="sb-muted sm">{s.sub}</span>
-              <span className="sb-strip sm">{(prev[s.id]?prev[s.id].chips:[]).map(u=><span key={u} style={{background:uidHex(u)}}/>)}</span>
-            </button>
-          ))}
-        </div>
-        <label className="sb-toggle"><span>Keep browns &amp; neutrals</span><input type="checkbox" checked={keep} onChange={e=>setKeep(e.target.checked)}/></label>
+        <div className="sb-muted sm" style={{marginBottom:6}}>Tap one to add it as a version. <Icon n="spark" size={13}/> gives that one a different take.</div>
+        <div className="sb-label">Color schemes</div>
+        <div className="sb-schemes">{P.VERSION_SCHEMES.map(Card)}</div>
+        <div className="sb-label">Vibes</div>
+        <div className="sb-schemes">{P.VERSION_VIBES.map(Card)}</div>
+        <label className="sb-toggle"><span>Keep browns &amp; greys</span><input type="checkbox" checked={keep} onChange={e=>setKeep(e.target.checked)}/></label>
         <button className="sb-link" onClick={()=>onPick("copy")}>Or copy as-is and recolor by hand</button>
       </Sheet>
     );
