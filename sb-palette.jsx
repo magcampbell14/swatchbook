@@ -275,7 +275,13 @@
     const groups=[]; const seen=new Set();
     uidsByUse.forEach(u=>{ const g=groupOf(u); if(g&&!seen.has(g.key)){seen.add(g.key);groups.push(g);} });
     const to={}; groups.forEach(g=>{ to[g.key]=g; });
-    const movers=groups.filter(g=>g._lch[1]>=6 && !(keep&&isEarthy(g)));
+    // what stays put: vibes and pastel recolor everything but true greys/blacks (an earthy page
+    // turned Pastel or Blue hour shouldn't keep its browns). Hue schemes also keep browns —
+    // unless browns ARE the page, in which case they're the colors that need to change.
+    const browns=groups.filter(g=>isEarthy(g)&&g._lch[1]>=8).length;
+    const fullRecolor = kind.startsWith("vibe:") || kind==="pastel" || browns*3>=groups.length;
+    const holds = g => keep && (fullRecolor ? (g._lch[1]<8 && (g._lch[0]<30 || g._lch[1]<5)) : isEarthy(g));
+    const movers=groups.filter(g=>!holds(g) && (g._lch[1]>=6 || fullRecolor && kind!=="rotate"));
     const takenBy=new Set(groups.filter(g=>!movers.includes(g)).map(g=>g.key));
     const snapOne=(lab,band)=>{
       let b1=null,d1=Infinity,b2=null,d2=Infinity;

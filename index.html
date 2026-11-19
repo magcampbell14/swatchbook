@@ -275,6 +275,21 @@ input{font-family:inherit;}
 .sb-scheme-img.busy img{opacity:.55;}
 .sb-scheme-spin{position:absolute;top:14px;right:14px;width:34px;height:34px;border-radius:17px;border:1px solid var(--line);background:var(--card);display:flex;align-items:center;justify-content:center;color:var(--ink);}
 @media (max-width:420px){ .sb-viberow .sb-strip span{width:13px;height:13px;} }
+
+/* try palettes */
+.sb-trytabs{margin-bottom:4px;}
+.sb-scheme-img .sb-scheme-photo{position:absolute;height:auto;aspect-ratio:auto;object-fit:cover;left:6px;bottom:6px;width:34%;border-radius:8px;border:2px solid var(--card);box-shadow:0 1px 4px rgba(0,0,0,.2);}
+.sb-trybig{position:relative;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:#fff;touch-action:none;user-select:none;-webkit-user-select:none;}
+.sb-trybig canvas{display:block;width:100%;height:auto;max-height:56vh;object-fit:contain;}
+.sb-trybig-tag{position:absolute;right:8px;bottom:8px;font-size:11px;font-weight:600;background:rgba(251,249,244,.92);border:1px solid var(--line);border-radius:10px;padding:3px 8px;color:var(--muted);}
+.sb-trychips{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 6px;}
+.sb-trychip{display:inline-flex;align-items:center;gap:6px;border:1.5px solid var(--line);border-radius:12px;background:var(--card);padding:4px 4px 4px 4px;font-size:13px;}
+.sb-trychip.unused{opacity:.45;}
+.sb-trychip-sw{width:26px;height:26px;border-radius:8px;border:1px solid rgba(43,38,34,.13);}
+.sb-trychip button{border:none;background:none;width:26px;height:26px;display:flex;align-items:center;justify-content:center;color:var(--muted);}
+.sb-trychip b{padding-right:2px;}
+.sb-trychip.add{justify-content:center;width:44px;height:38px;color:var(--ink);}
+@media (min-width:700px){ .sb-trybig canvas{max-height:60vh;} }
 </style>
 </head>
 <body>
@@ -292,6 +307,7 @@ input{font-family:inherit;}
 <script type="text/babel" data-presets="react" src="cq-ui.jsx"></script>
 <script type="text/babel" data-presets="react" src="sb-core.jsx"></script>
 <script type="text/babel" data-presets="react" src="sb-palette.jsx"></script>
+<script type="text/babel" data-presets="react" src="sb-autofill.jsx"></script>
 <script type="text/babel" data-presets="react" src="sb-pages.jsx"></script>
 <script type="text/babel" data-presets="react" src="sb-markers.jsx"></script>
 <script type="text/babel" data-presets="react" src="sb-palettes.jsx"></script>

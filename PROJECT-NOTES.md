@@ -139,3 +139,24 @@ shared UI), `sb-pages.jsx`, `sb-markers.jsx`, `sb-palettes.jsx`; the App shell i
   Lighter/Deeper/Softer/Bolder (same seed, so it adjusts instead of reshuffling), 4–9 colors,
   Include a marker (MarkerPicker → onPick receives a GROUP, not a uid).
 - Audit harness: /home/claude/scripts/audit_*.js + audit_run.py + audit_sheet.py (not in repo).
+
+## 9. Try palettes / auto-fill (`sb-autofill.jsx`, Nov 19 2026)
+- The version "+" button, the ✳︎ header button, "Try palettes" on a blank page, and the start
+  sheet's "See it filled in" all open **Try palettes** (`NewVersionSheet` in sb-pages.jsx).
+  Tabs: Vibes · My palettes (cq-saved) · Photo (camera roll, several at once) · Recolor (old
+  scheme/vibe recolors, only once something is filled).
+- `SB.AUTO.segment` labels every fillable area with the SAME rule as `floodFill` (seed color ±tol),
+  starting only from paper pixels (lum ≥ 230). Areas touching the image edge (the margin) and
+  specks are skipped. Neighbors = separated only by a short run of line pixels.
+- `groupsFor`: filled areas keep your grouping (one group per marker, with its lightness);
+  empty areas group by repeated shape (log area, aspect, fill ratio), and touching areas in a
+  group are split (tile patterns alternate).
+- `assign`: role cost — biggest groups ↔ calmest colors, smallest ↔ accents; lightness rank
+  kept on filled pages; touching groups kept apart; more colors than groups → groups split.
+  `seed>1` (Re-arrange) = looser, more varied pass.
+- Output is a normal history (your taps recolored + one tap per newly filled area), so undo,
+  versions, export, coloring mode all work. Blank current version → filled in place;
+  otherwise → new version named after the palette.
+- Previews paint a downsampled label map (300px cards, 1100px detail), not flood fills.
+- Recolor fix: vibes/pastel (and pages that are mostly browns) recolor browns too; "Keep browns
+  & greys" then only holds true greys/near-blacks.

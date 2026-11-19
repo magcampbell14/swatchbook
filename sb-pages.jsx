@@ -313,6 +313,10 @@
             <span className="sb-option-ic"><Icon n="spark"/></span>
             <span className="sb-option-txt"><b>A starter palette</b><span>Pick a vibe, tweak from there</span></span>
           </button>
+          <button className="sb-option" onClick={()=>page&&onStart(page.id,[],"try")}>
+            <span className="sb-option-ic"><Icon n="palettes"/></span>
+            <span className="sb-option-txt"><b>See it filled in</b><span>The whole page in different palettes — vibes, saved, or a photo</span></span>
+          </button>
           <button className="sb-option" onClick={()=>page&&onStart(page.id,[],"pick")}>
             <span className="sb-option-ic"><Icon n="blank"/></span>
             <span className="sb-option-txt"><b>Nothing — wing it</b><span>Suggestions appear as you fill</span></span>
@@ -342,7 +346,7 @@
     const [replaceUid,setReplaceUid]=useState(null);
     const [shade,setShade]=useState(null);         // {uid, context}
     const [moreOpen,setMoreOpen]=useState(false);
-    const [newVerOpen,setNewVerOpen]=useState(false);
+    const [newVerOpen,setNewVerOpen]=useState(openWith==="try");
     const [around,setAround]=useState(null);       // anchor uid for "palettes with this color"
     const [colorMode,setColorMode]=useState(false);
     const [toast,showToast]=SB.useToast();
@@ -430,6 +434,15 @@
       const next=[...versions,nv]; rebuild(nv.history); commit(next,next.length-1); setNewVerOpen(false);
     }
 
+    // a palette filled in from Try palettes: fills this version if it's still blank, otherwise
+    // becomes a new version (named after the palette)
+    function fillAs(hist,uids,label){
+      setFuture([]);
+      if(!history.length){ rebuild(hist); setCur({history:hist,tray:[...new Set([...uids,...tray])],active:uids[0]||null}); setNewVerOpen(false); showToast(`Filled with ${label}`); return; }
+      const same=versions.filter(v=>v.name===label||v.name.startsWith(label+" ")).length;
+      const nv={id:vid(), name:same?`${label} ${same+1}`:label, history:hist, tray:[...new Set(uids)], active:uids[0]||null, star:false};
+      const next=[...versions,nv]; rebuild(nv.history); commit(next,next.length-1); setNewVerOpen(false);
+    }
     // keep the anchor color where it is; give every other filled color a palette member of
     // similar lightness (so the picture keeps its lights and darks), as a new version
     function tryPalette(anchor,uids,label){
@@ -513,6 +526,7 @@
           <h1 className="sb-ed-title">{page.name}</h1>
           <button className="sb-iconbtn" onClick={undo} disabled={!history.length} aria-label="Undo"><Icon n="undo"/></button>
           <button className="sb-iconbtn" onClick={redo} disabled={!future.length} aria-label="Redo"><Icon n="redo"/></button>
+          <button className="sb-iconbtn" onClick={()=>setNewVerOpen(true)} aria-label="Try palettes"><Icon n="spark"/></button>
           <button className="sb-iconbtn" onClick={()=>setColorMode(true)} aria-label="Coloring mode"><Icon n="eye"/></button>
           <button className="sb-iconbtn" onClick={()=>setMoreOpen(true)} aria-label="More"><Icon n="more"/></button>
         </header>
@@ -537,7 +551,7 @@
               ? <><Chip hex={activeG.hex} size={28}/><span className="sb-dock-code"><b>{codeText(activeG)}</b> <span className="sb-muted">{activeG.name}</span></span>
                   <button className="sb-pillbtn" onClick={()=>setAround(active)}>Palettes</button>
                   <button className="sb-pillbtn" onClick={()=>setShade({uid:active})}>Shading</button></>
-              : <span className="sb-muted">Pick a marker, then tap an area</span>}
+              : <><span className="sb-muted">Pick a marker, then tap an area</span>{!history.length && <button className="sb-pillbtn" onClick={()=>setNewVerOpen(true)}>Try palettes</button>}</>}
           </div>
           <div className="sb-tray">
             {tray.map(u=>{ const g=groupOf(u); if(!g) return null; return <TrayPot key={u} g={g} on={u===active} status={SB.groupStatus(g,stock)}
@@ -572,7 +586,7 @@
         <AroundSheet anchor={around} onClose={()=>setAround(null)} stock={stock} hasOthers={usesByCount(history).some(u=>u!==around)}
           onAdd={uids=>{ const t=[...new Set([...tray,...uids])]; setCur({tray:t,active:around},{encode:false}); setAround(null); showToast(`Added ${uids.length} markers`); }}
           onTry={(uids,label)=>{ tryPalette(around,uids,label); setAround(null); }}/>
-        <NewVersionSheet open={newVerOpen} onClose={()=>setNewVerOpen(false)} page={page} history={history} tray={tray} stock={stock} baseRef={baseRef} baseDataRef={baseDataRef} tol={tol} onPick={addVersion}/>
+        <NewVersionSheet open={newVerOpen} onClose={()=>setNewVerOpen(false)} page={page} history={history} tray={tray} stock={stock} baseRef={baseRef} baseDataRef={baseDataRef} tol={tol} onPick={addVersion} onFill={fillAs} startTab={openWith==="try"?"vibes":null} ready={ready}/>
 
         <Sheet open={moreOpen} onClose={()=>setMoreOpen(false)} title="Page">
           <label className="sb-field"><span>Name</span>
@@ -650,57 +664,168 @@
     );
   }
 
-  // ---------- New version: color schemes + vibes, each with its own shuffle ----------
-  function NewVersionSheet({open,onClose,page,history,tray,stock,baseRef,baseDataRef,tol,onPick}){
-    const P=SB.PAL;
-    const [keep,setKeep]=useState(true);
-    const [seeds,setSeeds]=useState({});
-    const [prev,setPrev]=useState({});
-    const uses=useMemo(()=>[...usesByCount(history),...tray.filter(u=>!history.some(a=>a.uid===u))],[history,tray]);
-    const cards=useMemo(()=>[...P.VERSION_SCHEMES,...P.VERSION_VIBES],[]);
-    const hsig=history.length+":"+uses.join(",");
+  // ---------- Try palettes: the page filled in with any palette ----------
+  // Vibes (generated), My palettes (saved), Photo (from the camera roll) and, once something
+  // is filled, Color schemes (recolor what you did). Every card is the whole page filled in;
+  // tap one to add or remove colors, re-arrange, and keep it as a version.
+  function useProgressive(items){
+    const [done,setDone]=useState({});
+    const sigs=items.map(it=>it.key+"|"+it.sig).join("\n");
     useEffect(()=>{
-      if(!open||!baseRef.current||!history.length) return; let dead=false;
-      const w=page.w,h=page.h;
-      const fc=document.createElement("canvas"); fc.width=w; fc.height=h;
-      const tmp=document.createElement("canvas"); tmp.width=w; tmp.height=h;
-      const todo=cards.filter(c=>{ const sig=`${c.id}|${seeds[c.id]||1}|${keep}|${hsig}`; return !prev[c.id]||prev[c.id].sig!==sig; });
-      let i=0;
-      function step(){
-        if(dead||i>=todo.length) return; const c=todo[i++]; const seed=seeds[c.id]||1;
-        const map=P.recolor(uses,c.id,{keep,stock,seed});
-        replayInto(fc,baseDataRef.current,w,h,history.map(a=>({...a,uid:map[a.uid]||a.uid})),tol);
-        compose(tmp.getContext("2d"),baseRef.current,fc,w,h);
-        const sc=document.createElement("canvas"); const k=320/Math.max(w,h); sc.width=Math.round(w*k); sc.height=Math.round(h*k);
-        sc.getContext("2d").drawImage(tmp,0,0,sc.width,sc.height);
-        const item={sig:`${c.id}|${seed}|${keep}|${hsig}`,src:sc.toDataURL("image/jpeg",0.85),chips:[...new Set(uses.map(u=>map[u]||u))].slice(0,8)};
-        setPrev(p=>({...p,[c.id]:item}));
-        setTimeout(step,0);
-      }
-      const t=setTimeout(step,30);
+      let dead=false, i=0; const todo=items.filter(it=>!done[it.key]||done[it.key].sig!==it.sig);
+      function step(){ if(dead||i>=todo.length) return; const it=todo[i++];
+        let out=null; try{ out=it.run(); }catch(e){ console.warn(e); }
+        if(out) setDone(d=>({...d,[it.key]:{...out,sig:it.sig}}));
+        setTimeout(step,0); }
+      const t=setTimeout(step,20);
       return ()=>{ dead=true; clearTimeout(t); };
-    },[open,keep,hsig,stock,seeds]);
-    const Card=c=>{ const pv=prev[c.id]; const fresh=pv&&pv.sig===`${c.id}|${seeds[c.id]||1}|${keep}|${hsig}`;
-      return (
-        <div key={c.id} className="sb-scheme">
-          <button className="sb-scheme-pick" onClick={()=>onPick(c.id,keep,seeds[c.id]||1)} disabled={!history.length}>
-            <span className={"sb-scheme-img"+(fresh?"":" busy")}>{pv?<img src={pv.src} alt=""/>:<span className="sb-loading">…</span>}</span>
-            <b>{c.label}</b><span className="sb-muted sm">{c.sub}</span>
-            <span className="sb-strip sm">{(pv?pv.chips:[]).map(u=><span key={u} style={{background:uidHex(u)}}/>)}</span>
-          </button>
-          {history.length>0 && <button className="sb-scheme-spin" onClick={()=>setSeeds(s=>({...s,[c.id]:P.newSeed()}))} aria-label={`Shuffle ${c.label}`}><Icon n="spark" size={16}/></button>}
-        </div>); };
+    // eslint-disable-next-line
+    },[sigs]);
+    return done;
+  }
+  const savedUids=p=>(p.colors||[]).map(c=>c&&c.marker&&c.marker.uid).filter(u=>u&&groupOf(u));
+  function NewVersionSheet({open,onClose,page,history,tray,stock,baseRef,baseDataRef,tol,onPick,onFill,startTab,ready}){
+    const P=SB.PAL, A=SB.AUTO;
+    const hasHist=history.length>0;
+    const segRef=useRef(null), thumbRef=useRef(null), bigRef=useRef(null), photoRef=useRef(null);
+    const [segV,setSegV]=useState(0);
+    const [tab,setTab]=useState(startTab||"vibes");
+    const [keep,setKeep]=useState(true);
+    const [fillEmpty,setFillEmpty]=useState(true);
+    const [seeds,setSeeds]=useState({});
+    const [photos,setPhotos]=useState([]);
+    const [detail,setDetail]=useState(null);
+    const prevKeys=useRef({});
+    useEffect(()=>{ if(open&&startTab) setTab(startTab); if(!open) setDetail(null); },[open]);
+    useEffect(()=>{
+      if(!open||!baseDataRef.current||!baseRef.current) return;
+      if(segRef.current&&segRef.current.tol===tol&&segRef.current.img===page.img) return;
+      const t=setTimeout(()=>{ const s=A.segment(baseDataRef.current,page.w,page.h,tol); s.img=page.img; segRef.current=s;
+        thumbRef.current=A.makeThumb(s,baseRef.current,300); bigRef.current=A.makeThumb(s,baseRef.current,1100); setSegV(v=>v+1); },40);
+      return ()=>clearTimeout(t);
+    },[open,tol,page.img,ready]);
+    const seg=segRef.current;
+    const hsig=history.length+":"+history.slice(-3).map(a=>a.uid+a.x+","+a.y).join(";");
+    const groups=useMemo(()=>seg?A.groupsFor(seg,history,{fillEmpty:hasHist?fillEmpty:true}):[],[segV,hsig,fillEmpty]);
+    const emptyCount=useMemo(()=>{ if(!seg||!hasHist) return 0; const filled=A.regColorFrom(seg,history); return seg.regions.filter(r=>r.ok&&!filled.has(r.id)).length; },[segV,hsig]);
+    const nAuto=Math.max(4,Math.min(7,hasHist?groups.length:6));
+    const saved=useMemo(()=>{ if(!open) return []; const l=window.STORAGE.get("cq-saved",[]); return (Array.isArray(l)?l:[]).map(p=>({id:"s"+p.ts,label:p.name||p.label||"Palette",uids:savedUids(p)})).filter(p=>p.uids.length>=2); },[open]);
+    const sigBase=`${segV}|${hsig}|${fillEmpty}`;
+    // a palette → the page filled in with it
+    function fillWith(uids,seed){
+      const res=A.assign(seg,groups,uids,{seed});
+      const hist=A.toHistory(seg,res,history,tol);
+      return {hist,uids};
+    }
+    function thumbOf(hist){ return A.paintThumb(thumbRef.current,seg,A.regColorFrom(seg,hist)).toDataURL("image/jpeg",0.85); }
+    const items=useMemo(()=>{
+      if(!seg||!open) return [];
+      if(tab==="vibes") return P.VIBE_ORDER.map(v=>{ const sd=seeds["v:"+v]||1; return {key:"v:"+v,sig:`${sigBase}|${sd}|${nAuto}`,label:P.VIBES[v].label,sub:P.VIBES[v].blurb,
+        run:()=>{ const pal=P.generate(v,{n:nAuto,seed:sd,stock,avoid:prevKeys.current["v:"+v]||null}); const f=fillWith(pal.uids,1); return {...f,src:thumbOf(f.hist),keys:pal.keys}; }}; });
+      if(tab==="saved") return saved.map(p=>{ const sd=seeds[p.id]||1; return {key:p.id,sig:`${sigBase}|${sd}`,label:p.label,sub:`${p.uids.length} colors`,
+        run:()=>{ const f=fillWith(p.uids,sd); return {...f,src:thumbOf(f.hist)}; }}; });
+      if(tab==="photo") return photos.map(p=>{ const sd=seeds[p.id]||1; return {key:p.id,sig:`${sigBase}|${sd}|${p.uids.join()}`,label:"Photo palette",photo:p.src,
+        run:()=>{ const f=fillWith(p.uids,sd); return {...f,src:thumbOf(f.hist)}; }}; });
+      if(tab==="schemes") return [...P.VERSION_SCHEMES,...P.VERSION_VIBES].map(c=>{ const sd=seeds["k:"+c.id]||1; return {key:"k:"+c.id,sig:`${segV}|${hsig}|${keep}|${sd}`,label:c.label,sub:c.sub,scheme:c.id,
+        run:()=>{ const uses=[...usesByCount(history),...tray.filter(u=>!history.some(a=>a.uid===u))];
+          const map=P.recolor(uses,c.id,{keep,stock,seed:sd}); const hist=history.map(a=>({...a,uid:map[a.uid]||a.uid}));
+          return {hist,uids:[...new Set(uses.map(u=>map[u]||u))],src:thumbOf(hist)}; }}; });
+      return [];
+    },[tab,segV,sigBase,seeds,saved,photos,keep,stock,nAuto]);
+    const done=useProgressive(items);
+    function spin(it){ const d=done[it.key]; if(d&&d.keys) prevKeys.current[it.key]=d.keys; setSeeds(s=>({...s,[it.key]:P.newSeed()})); }
+    async function onPhoto(e){
+      const fs=[...(e.target.files||[])]; e.target.value="";
+      for(const f of fs.slice(0,6)){ try{ const im=await SB.readImageFile(f);
+        const c=document.createElement("canvas"); const k=160/Math.max(im.naturalWidth,im.naturalHeight); c.width=Math.round(im.naturalWidth*k); c.height=Math.round(im.naturalHeight*k); c.getContext("2d").drawImage(im,0,0,c.width,c.height);
+        const uids=SB.extractFromImage(im,stock,6); if(uids.length) setPhotos(ps=>[{id:"p"+Date.now()+Math.random().toString(36).slice(2,5),src:c.toDataURL("image/jpeg",0.8),uids},...ps]); }catch{} }
+    }
+    function open_(it){ const d=done[it.key]; if(!d) return;
+      if(it.scheme){ onPick(it.scheme,keep,seeds[it.key]||1); return; }
+      setDetail({key:it.key,label:it.label,uids:d.uids,seed:1,vibe:it.key.startsWith("v:")?it.key.slice(2):null,fromSaved:tab==="saved"}); }
+    const TABS=[["vibes","Vibes"],["saved","My palettes"],["photo","Photo"],...(hasHist?[["schemes","Recolor"]]:[])];
+    const title=detail?detail.label:"Try palettes";
     return (
-      <Sheet open={open} onClose={onClose} title="New version" tall>
-        {!history.length && <div className="sb-empty">Fill a few areas first — new versions recolor what you’ve filled.</div>}
-        <div className="sb-muted sm" style={{marginBottom:6}}>Tap one to add it as a version. <Icon n="spark" size={13}/> gives that one a different take.</div>
-        <div className="sb-label">Color schemes</div>
-        <div className="sb-schemes">{P.VERSION_SCHEMES.map(Card)}</div>
-        <div className="sb-label">Vibes</div>
-        <div className="sb-schemes">{P.VERSION_VIBES.map(Card)}</div>
-        <label className="sb-toggle"><span>Keep browns &amp; greys</span><input type="checkbox" checked={keep} onChange={e=>setKeep(e.target.checked)}/></label>
-        <button className="sb-link" onClick={()=>onPick("copy")}>Or copy as-is and recolor by hand</button>
+      <Sheet open={open} onClose={onClose} title={title} tall>
+        <input ref={photoRef} type="file" accept="image/*" multiple hidden onChange={onPhoto}/>
+        {!seg && open && <div className="sb-empty">Finding the areas on this page…</div>}
+        {seg && detail && <TryDetail key={detail.key} d={detail} setD={setDetail} seg={seg} groups={groups} history={history} tol={tol} stock={stock}
+          big={bigRef.current} fillWith={fillWith} onFill={onFill} hasHist={hasHist} emptyCount={emptyCount} fillEmpty={fillEmpty} setFillEmpty={setFillEmpty} nAuto={nAuto}/>}
+        {seg && !detail && <>
+          <div className="sb-scrollrow sb-trytabs" role="tablist">
+            {TABS.map(([id,l])=><button key={id} role="tab" aria-selected={tab===id} className={"sb-pillbtn"+(tab===id?" on":"")} onClick={()=>setTab(id)}>{l}</button>)}
+          </div>
+          <div className="sb-muted sm" style={{margin:"2px 0 10px"}}>
+            {tab==="schemes"?"Recolors what you filled, keeping its lights and darks.":
+             hasHist?"Your page, filled with each palette — your color choices keep their places.":"Your page, filled in with each palette. Tap one to tweak it."}
+            {" "}<Icon n="spark" size={13}/> = another take.
+          </div>
+          {hasHist && emptyCount>0 && tab!=="schemes" && <label className="sb-toggle"><span>Fill the empty areas too</span><input type="checkbox" checked={fillEmpty} onChange={e=>setFillEmpty(e.target.checked)}/></label>}
+          {tab==="saved" && !saved.length && <div className="sb-empty">No saved palettes yet. Save one from the Palettes tab or from a page’s ⋯ menu.</div>}
+          {tab==="photo" && <button className="sb-btn sb-btn-line wide" onClick={()=>photoRef.current&&photoRef.current.click()}><Icon n="photo" size={18}/><span>{photos.length?"Add more photos":"Choose photos"}</span></button>}
+          {tab==="photo" && !photos.length && <div className="sb-muted sm" style={{marginTop:8}}>Pick one or a few — each becomes a palette from your markers, shown on this page.</div>}
+          <div className="sb-schemes" style={{marginTop:10}}>
+            {items.map(it=>{ const d=done[it.key]; const fresh=d&&d.sig===it.sig; return (
+              <div key={it.key} className="sb-scheme">
+                <button className="sb-scheme-pick" onClick={()=>open_(it)} disabled={!d}>
+                  <span className={"sb-scheme-img"+(fresh?"":" busy")}>{d?<img src={d.src} alt=""/>:<span className="sb-loading">…</span>}
+                    {it.photo && <img className="sb-scheme-photo" src={it.photo} alt=""/>}</span>
+                  <b>{it.label}</b>{it.sub&&<span className="sb-muted sm">{it.sub}</span>}
+                  <span className="sb-strip sm">{(d?d.uids:[]).slice(0,9).map(u=><span key={u} style={{background:uidHex(u)}}/>)}</span>
+                </button>
+                <button className="sb-scheme-spin" onClick={()=>spin(it)} aria-label={`Another take on ${it.label}`}><Icon n="spark" size={16}/></button>
+              </div>); })}
+          </div>
+          {tab==="schemes" && <label className="sb-toggle"><span>Keep browns &amp; greys</span><input type="checkbox" checked={keep} onChange={e=>setKeep(e.target.checked)}/></label>}
+          {hasHist && <button className="sb-link" onClick={()=>onPick("copy")}>Or copy this version as-is and recolor by hand</button>}
+        </>}
       </Sheet>
+    );
+  }
+
+  // one palette on the page, big: add / remove colors, re-arrange, keep it
+  function TryDetail({d,setD,seg,groups,history,tol,stock,big,fillWith,onFill,hasHist,emptyCount,fillEmpty,setFillEmpty,nAuto}){
+    const P=SB.PAL, A=SB.AUTO;
+    const [picker,setPicker]=useState(false);
+    const [peek,setPeek]=useState(false);
+    const [hist2,setHist2]=useState([]);
+    const canvasRef=useRef(null);
+    const f=useMemo(()=>fillWith(d.uids,d.seed),[d.uids,d.seed,groups]);
+    useEffect(()=>{ const c=canvasRef.current; if(!c||!big) return;
+      const img=A.paintThumb(big,seg,A.regColorFrom(seg,peek?history:f.hist)); c.width=img.width; c.height=img.height; c.getContext("2d").drawImage(img,0,0); },[f,peek]);
+    const set=patch=>{ setHist2(h=>[...h.slice(-19),d]); setD({...d,...patch}); };
+    const used=new Set(f.hist.map(a=>a.uid));
+    function add(g){ setPicker(false); if(!g) return; const u=typeof g==="string"?g:SB.pickUid(g,stock); if(d.uids.includes(u)) return; set({uids:[...d.uids,u]}); }
+    function suggest(){ const s=SB.bestFits(d.uids,stock,1,false)[0]; if(s) add(s); }
+    return (
+      <div className="sb-trydetail">
+        <button className="sb-link sb-tuner-back" onClick={()=>setD(null)}><Icon n="back" size={16}/> All palettes</button>
+        <div className="sb-trybig" onPointerDown={()=>hasHist&&setPeek(true)} onPointerUp={()=>setPeek(false)} onPointerLeave={()=>setPeek(false)} onPointerCancel={()=>setPeek(false)}>
+          <canvas ref={canvasRef}/>
+          {hasHist && <span className="sb-trybig-tag">{peek?"Your version":"Hold to compare"}</span>}
+        </div>
+        <div className="sb-trychips">
+          {d.uids.map(u=>{ const g=groupOf(u); return g && (
+            <span key={u} className={"sb-trychip"+(used.has(u)?"":" unused")}>
+              <span className="sb-trychip-sw" style={{background:g.hex}}/><b>{g.code}</b>
+              {d.uids.length>2 && <button onClick={()=>set({uids:d.uids.filter(x=>x!==u)})} aria-label={`Remove ${g.code}`}><Icon n="close" size={12}/></button>}
+            </span>); })}
+          <button className="sb-trychip add" onClick={()=>setPicker(true)} aria-label="Add a color"><Icon n="plus" size={16}/></button>
+        </div>
+        <div className="sb-muted sm">{[...used].length<d.uids.length?"Faded colors don’t fit anywhere yet — add more areas or remove one.":"New colors slot in by role: big areas get calm colors, small ones the accents."}</div>
+        <div className="sb-nudges" style={{marginTop:10}}>
+          <button className="sb-pillbtn" onClick={suggest}><Icon n="plus" size={14}/> Suggest a color</button>
+          <button className="sb-pillbtn" onClick={()=>set({seed:P.newSeed()})}><Icon n="spark" size={14}/> Re-arrange</button>
+          {d.vibe && <button className="sb-pillbtn" onClick={()=>set({uids:P.generate(d.vibe,{n:d.uids.length||nAuto,seed:P.newSeed(),stock,avoid:d.uids.map(u=>{ const g=groupOf(u); return g&&g.key; })}).uids,seed:1})}><Icon n="spark" size={14}/> New {P.VIBES[d.vibe].label} palette</button>}
+          <button className="sb-pillbtn" disabled={!hist2.length} onClick={()=>{ const p=hist2[hist2.length-1]; setHist2(h=>h.slice(0,-1)); setD(p); }}><Icon n="undo" size={14}/> Back</button>
+        </div>
+        {hasHist && emptyCount>0 && <label className="sb-toggle"><span>Fill the empty areas too</span><input type="checkbox" checked={fillEmpty} onChange={e=>setFillEmpty(e.target.checked)}/></label>}
+        <div className="sb-btnrow">
+          {!d.fromSaved && <button className="sb-btn sb-btn-line" onClick={()=>{ const r=SB.savePalette(d.uids,"Built",d.label); setD({...d,savedMsg:r==="dup"?"Already saved":"Saved"}); }}>{d.savedMsg||"Save palette"}</button>}
+          <button className="sb-btn sb-btn-ink" onClick={()=>onFill(f.hist,d.uids,d.label)}>{hasHist?"Add as version":"Fill this page"}</button>
+        </div>
+        <SB.MarkerPicker open={picker} onClose={()=>setPicker(false)} onPick={add} title="Add a color" fitUids={d.uids}/>
+      </div>
     );
   }
 
