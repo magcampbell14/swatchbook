@@ -7,7 +7,7 @@ const { useState, useEffect, useMemo, useRef, useCallback } = React;
 // ---------- storage ----------
 const STORAGE = {
   get:(k,f)=>{try{const v=localStorage.getItem(k);return v?JSON.parse(v):f;}catch{return f;}},
-  set:(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v));}catch{}},
+  set:(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v));}catch(e){ try{ window.dispatchEvent(new CustomEvent("sb-storage-full",{detail:{key:k}})); }catch{} }},
 };
 const LL_SUBS={};
 function useLocal(key,initial){

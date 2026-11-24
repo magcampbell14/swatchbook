@@ -160,3 +160,19 @@ shared UI), `sb-pages.jsx`, `sb-markers.jsx`, `sb-palettes.jsx`; the App shell i
 - Previews paint a downsampled label map (300px cards, 1100px detail), not flood fills.
 - Recolor fix: vibes/pastel (and pages that are mostly browns) recolor browns too; "Keep browns
   & greys" then only holds true greys/near-blacks.
+
+## 10. Done pages & real-life photos (`sb-store.jsx`, Nov 24 2026)
+- `page.done = { at:"YYYY-MM-DD", ver:<version id followed>, photos:[photoId…] }`; absent = Up next.
+  Added field only — `cq-pages` key and other fields unchanged.
+- Photos live in **IndexedDB** (db `swatchbook`, store `photos`, record `{id,pageId,src(JPEG
+  dataURL ≤1400px),w,h,addedAt}`) via `SB.PhotoDB` / `SB.usePhoto`. Never put photos in localStorage.
+  Deleting a page or "Move back to Up next" deletes its photos.
+- `prepRealPhoto` reuses `findPaper` + homography to straighten/crop to the paper (color, no line
+  cleanup); the user can switch to the full photo before saving.
+- Backup file now carries `photos:[…records]` (still `v:1`; older backups simply have none);
+  restore adds photos whose id isn't present.
+- `STORAGE.set` failures dispatch `sb-storage-full` → dismissible banner in the app shell.
+  Backup section shows approximate localStorage use (chars × 2 bytes vs ~5 MB).
+- Pages tab: `sb-pages-tab` UI key (todo/done). Done card cover = first photo with plan inset.
+  `CompareView`: plan (rendered from the version's history) vs photo; stacked when portrait,
+  side by side when wider than 4:5; tap a side to enlarge.

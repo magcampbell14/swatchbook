@@ -178,7 +178,10 @@
     for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(k&&k.indexOf(BACKUP_PREFIX)===0){ keys[k]=localStorage.getItem(k); } }
     return {app:"swatchbook",v:1,exportedAt:new Date().toISOString(),keys};
   }
-  function countIn(env){ try{ const s=JSON.parse(env.keys["cq-saved"]||"[]"); const pg=JSON.parse(env.keys["cq-pages"]||"[]"); return {pals:Array.isArray(s)?s.length:0,pages:Array.isArray(pg)?pg.length:0}; }catch{ return {pals:0,pages:0}; } }
+  // real-life photos live in IndexedDB; they ride along in the backup file
+  async function withPhotos(env){ try{ env.photos=await SB.PhotoDB.all(); }catch{ env.photos=[]; } return env; }
+  async function restorePhotos(env){ for(const r of (Array.isArray(env.photos)?env.photos:[])){ try{ if(r&&r.id&&!(await SB.PhotoDB.get(r.id))) await SB.PhotoDB.put(r); }catch{} } }
+  function countIn(env){ const ph=Array.isArray(env.photos)?env.photos.length:0; try{ const s=JSON.parse(env.keys["cq-saved"]||"[]"); const pg=JSON.parse(env.keys["cq-pages"]||"[]"); return {pals:Array.isArray(s)?s.length:0,pages:Array.isArray(pg)?pg.length:0,photos:ph}; }catch{ return {pals:0,pages:0,photos:ph}; } }
   function mergeArr(cur,inc,keyOf){ const out=Array.isArray(cur)?cur.slice():[]; const seen=new Set(out.map(keyOf)); (Array.isArray(inc)?inc:[]).forEach(x=>{ const k=keyOf(x); if(!seen.has(k)){ seen.add(k); out.push(x); } }); return out; }
   function restoreBackup(env,mode){
     if(!env||env.app!=="swatchbook"||!env.keys) throw new Error("not a swatchbook backup");
@@ -198,20 +201,21 @@
     const [msg,setMsg]=useState("");
     const ref=useRef(null);
     async function doExport(){
-      const env=collectBackup(); const c=countIn(env);
+      const env=await withPhotos(collectBackup()); const c=countIn(env);
       const blob=new Blob([JSON.stringify(env,null,2)],{type:"application/json"});
       const file=new File([blob],`swatchbook-backup-${env.exportedAt.slice(0,10)}.json`,{type:"application/json"});
-      try{ if(navigator.canShare&&navigator.canShare({files:[file]})){ await navigator.share({files:[file],title:"Swatch Book backup"}); setMsg(`Backed up ${c.pals} palettes, ${c.pages} pages`); return; } }
+      try{ if(navigator.canShare&&navigator.canShare({files:[file]})){ await navigator.share({files:[file],title:"Swatch Book backup"}); setMsg(`Backed up ${c.pals} palettes, ${c.pages} pages${c.photos?`, ${c.photos} photos`:""}`); return; } }
       catch(e){ if(e&&e.name==="AbortError") return; }
       const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=file.name; document.body.appendChild(a); a.click();
-      setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},0); setMsg(`Downloaded — ${c.pals} palettes, ${c.pages} pages`);
+      setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},0); setMsg(`Downloaded — ${c.pals} palettes, ${c.pages} pages${c.photos?`, ${c.photos} photos`:""}`);
     }
     async function onFile(e){
       const f=e.target.files&&e.target.files[0]; e.target.value=""; if(!f) return;
       try{ const env=JSON.parse(await f.text()); if(env.app!=="swatchbook"||!env.keys) throw 0; setPending(env); setMsg(""); }
       catch{ setPending(null); setMsg("That file isn’t a Swatch Book backup."); }
     }
-    const finish=mode=>{ try{ restoreBackup(pending,mode); location.reload(); }catch(err){ setMsg("Restore failed: "+(err.message||err)); } };
+    const finish=async mode=>{ try{ restoreBackup(pending,mode); await restorePhotos(pending); location.reload(); }catch(err){ setMsg("Restore failed: "+(err.message||err)); } };
+    const used=SB.storageUse(), mb=(used*2/1048576);
     const c=pending?countIn(pending):null;
     return (
       <section className="sb-backup">
@@ -222,13 +226,14 @@
           <button className="sb-btn sb-btn-line" onClick={()=>ref.current&&ref.current.click()}><Icon n="copy" size={18}/><span>Restore…</span></button>
         </div>
         {pending && <div className="sb-restore">
-          <span>Found {c.pals} palettes and {c.pages} pages. The app will reload.</span>
+          <span>Found {c.pals} palettes, {c.pages} pages{c.photos?` and ${c.photos} photos`:""}. The app will reload.</span>
           <div className="sb-btnrow">
             <button className="sb-btn sb-btn-ink" onClick={()=>finish("merge")}>Merge in</button>
             <button className="sb-btn sb-btn-line" onClick={()=>{ if(window.confirm("Replace everything saved here with this backup?")) finish("replace"); }}>Replace all</button>
           </div>
         </div>}
         {msg && <p className="sb-muted sm">{msg}</p>}
+        <p className="sb-muted sm">Pages &amp; palettes use about {mb.toFixed(1)} MB of this device’s ~5 MB app storage{mb>3.5?" — getting full: export a backup and clear out pages you don’t need.":"."} Real-life photos are stored separately.</p>
       </section>
     );
   }

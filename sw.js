@@ -26,6 +26,7 @@ const PRECACHE = [
   "sb-core.jsx",
   "sb-palette.jsx",
   "sb-autofill.jsx",
+  "sb-store.jsx",
   "sb-pages.jsx",
   "sb-markers.jsx",
   "sb-palettes.jsx",

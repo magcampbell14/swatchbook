@@ -176,6 +176,173 @@
   const countMarkers = p => new Set(((p.versions&&p.versions[p.ver||0]&&p.versions[p.ver||0].history)||p.history||[]).map(a=>a.uid)).size;
 
   // ---------- thumbnail ----------
+  // ---------- real-life results: done pages, photos, compare ----------
+  async function renderVersion(page,vi){
+    const base=await loadImg(page.img); const w=page.w, h=page.h;
+    const bc=document.createElement("canvas"); bc.width=w; bc.height=h; bc.getContext("2d").drawImage(base,0,0);
+    const fc=document.createElement("canvas"); fc.width=w; fc.height=h;
+    const v=page.versions[vi]||page.versions[0]; const hist=(v&&v.history)||[];
+    if(hist.length) replayInto(fc,bc.getContext("2d").getImageData(0,0,w,h).data,w,h,hist,page.tol||DEF_TOL);
+    const out=document.createElement("canvas"); out.width=w; out.height=h; compose(out.getContext("2d"),bc,fc,w,h);
+    return out;
+  }
+  // a photo of the finished page: also try a version cropped and straightened to the paper
+  async function prepRealPhoto(file){
+    const im=await SB.readImageFile(file); const MAXP=1400;
+    const nw=im.naturalWidth, nh=im.naturalHeight;
+    const k0=Math.min(1,MAXP/Math.max(nw,nh)); const c0=cv(Math.round(nw*k0),Math.round(nh*k0)); c0.getContext("2d").drawImage(im,0,0,c0.width,c0.height);
+    const orig={src:c0.toDataURL("image/jpeg",0.82),w:c0.width,h:c0.height};
+    let crop=null;
+    try{
+      const s0=Math.min(1,1600/Math.max(nw,nh)), W=Math.round(nw*s0), H=Math.round(nh*s0);
+      const sc=cv(W,H), sx=sc.getContext("2d"); sx.drawImage(im,0,0,W,H); const sd=sx.getImageData(0,0,W,H).data;
+      const quad=findPaper(sd,W,H);
+      if(quad){
+        let a=0; for(let i=0;i<4;i++){ const [x1,y1]=quad[i],[x2,y2]=quad[(i+1)%4]; a+=x1*y2-x2*y1; } a=Math.abs(a)/2;
+        if(a>0.25*W*H && a<0.96*W*H){
+          const top=Math.hypot(quad[1][0]-quad[0][0],quad[1][1]-quad[0][1]), bot=Math.hypot(quad[2][0]-quad[3][0],quad[2][1]-quad[3][1]);
+          const lef=Math.hypot(quad[3][0]-quad[0][0],quad[3][1]-quad[0][1]), rig=Math.hypot(quad[2][0]-quad[1][0],quad[2][1]-quad[1][1]);
+          const tw=(top+bot)/2, th=(lef+rig)/2, kk=Math.min(1,MAXP/Math.max(tw,th)); const ow=Math.round(tw*kk), oh=Math.round(th*kk);
+          const map=homography(quad,[[0,0],[ow,0],[ow,oh],[0,oh]]);
+          const out=cv(ow,oh), ox=out.getContext("2d"), od=ox.createImageData(ow,oh);
+          for(let y=0;y<oh;y++) for(let x=0;x<ow;x++){ let [u,v]=map(x+0.5,y+0.5); u=Math.max(0,Math.min(W-1.001,u-0.5)); v=Math.max(0,Math.min(H-1.001,v-0.5));
+            const x0=u|0,y0=v|0,fx=u-x0,fy=v-y0,i00=(y0*W+x0)*4,i10=i00+4,i01=i00+W*4,i11=i01+4,j=(y*ow+x)*4;
+            for(let c=0;c<3;c++) od.data[j+c]=(sd[i00+c]*(1-fx)+sd[i10+c]*fx)*(1-fy)+(sd[i01+c]*(1-fx)+sd[i11+c]*fx)*fy; od.data[j+3]=255; }
+          ox.putImageData(od,0,0); crop={src:out.toDataURL("image/jpeg",0.82),w:ow,h:oh};
+        }
+      }
+    }catch{}
+    return {orig,crop};
+  }
+  const todayISO=()=>{ const d=new Date(); return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10); };
+  const fmtDate=iso=>{ if(!iso) return ""; const [y,m,d]=iso.split("-").map(Number); return new Date(y,m-1,d).toLocaleDateString(undefined,{month:"short",day:"numeric",year:new Date().getFullYear()===y?undefined:"numeric"}); };
+  function PhotoThumb({id,onClick,label,children}){
+    const r=SB.usePhoto(id);
+    return <button className="sb-pthumb" onClick={onClick} aria-label={label}>{r?<img src={r.src} alt=""/>:<span className="sb-loading">…</span>}{children}</button>;
+  }
+
+  // mark a page done in real life: which version you followed, when, and photos of the result
+  function DoneSheet({open,page,onClose,onSave}){
+    const done=page.done||null;
+    const [ver,setVer]=useState(null);
+    const [at,setAt]=useState(todayISO());
+    const [keep,setKeep]=useState([]);
+    const [adds,setAdds]=useState([]);
+    const [busy,setBusy]=useState(false);
+    const fileRef=useRef(null);
+    useEffect(()=>{ if(!open) return;
+      const star=page.versions.find(v=>v.star);
+      setVer(done&&done.ver&&page.versions.some(v=>v.id===done.ver)?done.ver:(star||page.versions[page.ver]||page.versions[0]).id);
+      setAt((done&&done.at)||todayISO()); setKeep((done&&done.photos)||[]); setAdds([]);
+    },[open]);
+    async function onFiles(e){
+      const fs=[...(e.target.files||[])]; e.target.value=""; if(!fs.length) return; setBusy(true);
+      for(const f of fs.slice(0,6)){ try{ const r=await prepRealPhoto(f); setAdds(a=>[...a,{key:Math.random().toString(36).slice(2),...r,useCrop:!!r.crop}]); }catch{} }
+      setBusy(false);
+    }
+    async function save(){
+      setBusy(true);
+      const ids=[...keep];
+      for(const a of adds){ const p=a.useCrop&&a.crop?a.crop:a.orig; const id="ph_"+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+        try{ await SB.PhotoDB.put({id,pageId:page.id,src:p.src,w:p.w,h:p.h,addedAt:Date.now()}); ids.push(id); }catch{ alert("Couldn’t save a photo — your device may be out of space."); } }
+      for(const id of ((done&&done.photos)||[])) if(!keep.includes(id)) { try{ await SB.PhotoDB.del(id); }catch{} }
+      setBusy(false);
+      onSave({...page,done:{at,ver,photos:ids}});
+    }
+    async function undone(){
+      if(!window.confirm("Move this page back to Up next? Its real-life photos will be removed.")) return;
+      for(const id of ((done&&done.photos)||[])) { try{ await SB.PhotoDB.del(id); }catch{} }
+      const {done:_d,...rest}=page; onSave(rest);
+    }
+    return (
+      <Sheet open={open} onClose={onClose} title={done?"Done in real life":"Mark done in real life"} tall>
+        <input ref={fileRef} type="file" accept="image/*" multiple hidden onChange={onFiles}/>
+        <div className="sb-label">Photos of your finished page</div>
+        <div className="sb-pthumbs">
+          {keep.map(id=><PhotoThumb key={id} id={id} label="Remove photo" onClick={()=>setKeep(k=>k.filter(x=>x!==id))}><span className="sb-pthumb-x"><Icon n="close" size={12}/></span></PhotoThumb>)}
+          {adds.map(a=><div key={a.key} className="sb-padd">
+            <img src={(a.useCrop&&a.crop?a.crop:a.orig).src} alt=""/>
+            <button className="sb-pthumb-x" onClick={()=>setAdds(x=>x.filter(y=>y!==a))} aria-label="Remove photo"><Icon n="close" size={12}/></button>
+            {a.crop && <button className="sb-pillbtn sm" onClick={()=>setAdds(x=>x.map(y=>y===a?{...y,useCrop:!y.useCrop}:y))}>{a.useCrop?"Cropped to page":"Full photo"}</button>}
+          </div>)}
+          <button className="sb-pthumb add" onClick={()=>fileRef.current&&fileRef.current.click()} disabled={busy}><Icon n="photo" size={22}/><span>{busy?"Reading…":"Add"}</span></button>
+        </div>
+        <div className="sb-muted sm">Add a few — with and without flash is great. Tap “Cropped to page” to switch to the full photo.</div>
+        <div className="sb-label">Version you followed</div>
+        <div className="sb-scrollrow">
+          {page.versions.map(v=><button key={v.id} className={"sb-pillbtn"+(ver===v.id?" on":"")} onClick={()=>setVer(v.id)}>{v.star?"★ ":""}{v.name}</button>)}
+        </div>
+        <label className="sb-field"><span>Finished on</span><input type="date" value={at} max={todayISO()} onChange={e=>setAt(e.target.value||todayISO())}/></label>
+        <div className="sb-btnrow">
+          {done && <button className="sb-btn sb-btn-line" onClick={undone}>Move back to Up next</button>}
+          <button className="sb-btn sb-btn-ink" onClick={save} disabled={busy}>{done?"Save":"Mark as done"}</button>
+        </div>
+      </Sheet>
+    );
+  }
+
+  // plan vs. real life, side by side (stacked on a phone held upright); tap one to see it big
+  function CompareView({page,onClose,onOpen,onSave}){
+    const done=page.done||{}; const photos=done.photos||[];
+    const vi0=page.versions.findIndex(v=>v.id===done.ver);
+    const [vi,setVi]=useState(vi0>=0?vi0:page.ver||0);
+    const [pi,setPi]=useState(0);
+    const [focus,setFocus]=useState(null);
+    const [plan,setPlan]=useState(null);
+    const [edit,setEdit]=useState(false);
+    useEffect(()=>{ let dead=false; setPlan(null); renderVersion(page,vi).then(c=>{ if(!dead) setPlan(c.toDataURL("image/jpeg",0.9)); }).catch(()=>{}); return ()=>{ dead=true; }; },[vi,page.img,page.updatedAt]);
+    useEffect(()=>{ if(pi>=photos.length) setPi(0); },[photos.length]);
+    const rec=SB.usePhoto(photos[pi]);
+    const v=page.versions[vi]||page.versions[0];
+    const uses=usesByCount((v&&v.history)||[]);
+    const tap=side=>setFocus(f=>f?null:side);
+    return (
+      <div className="sb-editor sb-compare">
+        <header className="sb-ed-top">
+          <button className="sb-iconbtn" onClick={onClose} aria-label="Back to pages"><Icon n="back"/></button>
+          <h1 className="sb-ed-title">{page.name}</h1>
+          <button className="sb-pillbtn" onClick={()=>setEdit(true)}>Edit</button>
+          <button className="sb-pillbtn" onClick={onOpen}>Open page</button>
+        </header>
+        <div className="sb-cmp-body">
+          <div className="sb-muted sm sb-cmp-meta">Done {fmtDate(done.at)} · followed {v?v.name:"—"} · tap a side to see it bigger</div>
+          <div className={"sb-cmp-panes"+(focus?" one":"")}>
+            {focus!=="real" && <figure className="sb-cmp-pane" onClick={()=>tap("plan")}>
+              <div className="sb-cmp-img">{plan?<img src={plan} alt={`Plan, ${v?v.name:""}`}/>:<span className="sb-loading">…</span>}</div>
+              <figcaption>Plan · {v?v.name:""}</figcaption></figure>}
+            {focus!=="plan" && <figure className="sb-cmp-pane" onClick={()=>photos.length?tap("real"):setEdit(true)}>
+              <div className="sb-cmp-img">{photos.length?(rec?<img src={rec.src} alt="Your finished page"/>:<span className="sb-loading">…</span>)
+                :<span className="sb-cmp-empty"><Icon n="photo" size={26}/>Add a photo of your finished page</span>}</div>
+              <figcaption>Real life{photos.length>1?` · ${pi+1} of ${photos.length}`:""}</figcaption></figure>}
+          </div>
+          {photos.length>0 && <><div className="sb-label">Photos</div>
+            <div className="sb-pthumbs">
+              {photos.map((id,i)=><PhotoThumb key={id} id={id} label={`Photo ${i+1}`} onClick={()=>setPi(i)}>{i===pi&&<span className="sb-pthumb-on"/>}</PhotoThumb>)}
+              <button className="sb-pthumb add" onClick={()=>setEdit(true)}><Icon n="plus" size={20}/><span>Add</span></button>
+            </div></>}
+          {page.versions.length>1 && <><div className="sb-label">Compare with version</div>
+            <div className="sb-scrollrow">{page.versions.map((x,i)=><button key={x.id} className={"sb-pillbtn"+(i===vi?" on":"")} onClick={()=>setVi(i)}>{x.id===done.ver?"✓ ":""}{x.name}</button>)}</div></>}
+          {uses.length>0 && <><div className="sb-label">Markers in this plan · {uses.length}</div>
+            <div className="sb-cmp-markers">{uses.map(u=>{ const c=colorOf(u); return <span key={u} className="sb-cmp-mk"><span style={{background:uidHex(u)}}/>{c?c.code:""}</span>; })}</div></>}
+        </div>
+        <DoneSheet open={edit} page={page} onClose={()=>setEdit(false)} onSave={p=>{ setEdit(false); onSave(p); }}/>
+      </div>
+    );
+  }
+  function DoneCard({p,onOpen}){
+    const photos=(p.done&&p.done.photos)||[]; const r=SB.usePhoto(photos[0]);
+    return (
+      <button className="sb-pagecard" onClick={onOpen}>
+        <span className="sb-pagecard-img sb-donecover">
+          {photos.length ? (r?<img src={r.src} alt=""/>:<span className="sb-loading">…</span>) : <PageThumb page={p}/>}
+          {photos.length>0 && <span className="sb-doneinset"><PageThumb page={p}/></span>}
+        </span>
+        <span className="sb-pagecard-row"><b>{p.name}</b></span>
+        <span className="sb-muted sm">Done {fmtDate(p.done.at)}{photos.length?` · ${photos.length} photo${photos.length===1?"":"s"}`:" · add a photo"}</span>
+      </button>
+    );
+  }
+
   function PageThumb({page}){
     const ref=useRef(null);
     useEffect(()=>{
@@ -202,6 +369,8 @@
     const [pages,setPages]=window.useLocal("cq-pages",[]);
     const list=(Array.isArray(pages)?pages:[]).map(migrate);
     const [openId,setOpenId]=useState(null);
+    const [compareId,setCompareId]=useState(null);
+    const [pTab,setPTab]=window.useLocal("sb-pages-tab","todo");
     const [startId,setStartId]=useState(null);
     const [openWith,setOpenWith]=useState(null);
     const [busy,setBusy]=useState(false);
@@ -231,7 +400,9 @@
     const updatePage=useCallback(next=>{
       setPages(prev=>(Array.isArray(prev)?prev:[]).map(p=>p.id===next.id?next:p));
     },[setPages]);
-    function delPage(id){ setPages(prev=>(Array.isArray(prev)?prev:[]).filter(p=>p.id!==id)); setOpenId(null); }
+    function delPage(id){
+      const pg=list.find(p=>p.id===id); ((pg&&pg.done&&pg.done.photos)||[]).forEach(ph=>{ try{ SB.PhotoDB.del(ph); }catch{} });
+      setPages(prev=>(Array.isArray(prev)?prev:[]).filter(p=>p.id!==id)); setOpenId(null); setCompareId(null); }
     function startWith(id,tray,mode){
       const p=list.find(x=>x.id===id); if(!p) return;
       const versions=p.versions.map((v,i)=>i===p.ver?{...v,tray,active:tray[0]||null}:v);
@@ -239,7 +410,12 @@
       setStartId(null); setAlt(null); setOpenWith(mode); setOpenId(id);
     }
 
-    if(openPage) return <PageEditor key={openPage.id} page={openPage} onChange={updatePage} onClose={()=>{setOpenId(null);setOpenWith(null);}} onDelete={()=>delPage(openPage.id)} openWith={openWith}/>;
+    const cmpPage=list.find(p=>p.id===compareId&&p.done);
+    if(openPage) return <PageEditor key={openPage.id} page={openPage} onChange={updatePage} onClose={()=>{setOpenId(null);setOpenWith(null);}} onDelete={()=>delPage(openPage.id)} openWith={openWith}
+      onCompare={()=>{ setCompareId(openPage.id); setOpenId(null); setOpenWith(null); }}/>;
+    if(cmpPage) return <CompareView key={cmpPage.id} page={cmpPage} onClose={()=>setCompareId(null)} onOpen={()=>{ setOpenId(cmpPage.id); setCompareId(null); }} onSave={updatePage}/>;
+    const upNext=list.filter(p=>!p.done), doneList=list.filter(p=>p.done).sort((a,b)=>(b.done.at||"").localeCompare(a.done.at||""));
+    const view=(pTab==="done")?"done":"todo";
 
     return (
       <div className="sb-screen">
@@ -257,8 +433,17 @@
           </button>
         )}
         {list.length>0 && (
+          <div className="sb-seg sb-pagetabs" role="tablist" aria-label="Pages">
+            <button role="tab" aria-selected={view==="todo"} className={view==="todo"?"on":""} onClick={()=>setPTab("todo")}>Up next · {upNext.length}</button>
+            <button role="tab" aria-selected={view==="done"} className={view==="done"?"on":""} onClick={()=>setPTab("done")}>Done · {doneList.length}</button>
+          </div>
+        )}
+        {list.length>0 && view==="done" && (doneList.length===0
+          ? <div className="sb-empty">Finished a page on paper? Open it, tap ⋯ → <b>Done in real life</b>, and add a photo to compare it with your plan.</div>
+          : <div className="sb-pagegrid">{doneList.map(p=><DoneCard key={p.id} p={p} onOpen={()=>setCompareId(p.id)}/>)}</div>)}
+        {list.length>0 && view==="todo" && (
           <div className="sb-pagegrid">
-            {list.map(p=>{
+            {upNext.map(p=>{
               const v=p.versions[p.ver]; const star=p.versions.find(x=>x.star);
               const n=countMarkers(p);
               return (
@@ -333,7 +518,7 @@
   }
 
   // ---------- the fill screen ----------
-  function PageEditor({page,onChange,onClose,onDelete,openWith}){
+  function PageEditor({page,onChange,onClose,onDelete,openWith,onCompare}){
     const viewRef=useRef(null), baseRef=useRef(null), fillRef=useRef(null), baseDataRef=useRef(null), wrapRef=useRef(null);
     const [stock]=window.useStock();
     const [ready,setReady]=useState(false);
@@ -346,6 +531,7 @@
     const [replaceUid,setReplaceUid]=useState(null);
     const [shade,setShade]=useState(null);         // {uid, context}
     const [moreOpen,setMoreOpen]=useState(false);
+    const [doneOpen,setDoneOpen]=useState(false);
     const [newVerOpen,setNewVerOpen]=useState(openWith==="try");
     const [around,setAround]=useState(null);       // anchor uid for "palettes with this color"
     const [colorMode,setColorMode]=useState(false);
@@ -593,6 +779,10 @@
             <input defaultValue={page.name} maxLength={40} onBlur={e=>{ const n=e.target.value.trim()||page.name; if(n!==page.name) commit(versions,ver,{name:n,encode:false}); }}/>
           </label>
           <div className="sb-menu">
+            {page.done
+              ? <button onClick={()=>{ setMoreOpen(false); onCompare&&onCompare(); }}><Icon n="check"/><span>Compare with real life</span></button>
+              : <button onClick={()=>{ setMoreOpen(false); setDoneOpen(true); }}><Icon n="check"/><span>Done in real life…</span></button>}
+            {page.done && <button onClick={()=>{ setMoreOpen(false); setDoneOpen(true); }}><Icon n="photo"/><span>Real-life photos &amp; details</span></button>}
             <button onClick={()=>{ commit(versions.map((v,i)=>({...v,star:i===ver?!v.star:false})),ver,{encode:false}); setMoreOpen(false); }}><Icon n="star"/><span>{cur.star?"Unstar this version":"Star this version"}</span></button>
             <button onClick={()=>{ const uids=[...usesByCount(history),...tray.filter(u=>!history.some(x=>x.uid===u))]; const r=SB.savePalette(uids,"Page",`${page.name} · ${cur.name}`); setMoreOpen(false); showToast(r==="dup"?"Already saved":r?"Saved to Palettes":"Nothing to save yet"); }}><Icon n="palettes"/><span>Save these markers as a palette</span></button>
             <button onClick={async()=>{ await share(flatCanvas(),""); setMoreOpen(false); }}><Icon n="share"/><span>Export image</span></button>
@@ -603,6 +793,7 @@
           <div className="sb-label">Fill spread <span className="sb-muted">— raise it if fills stop short on a photo</span></div>
           <input type="range" min="14" max="90" step="2" value={tol} onChange={e=>setTol(+e.target.value)} aria-label="Fill spread" className="sb-range"/>
         </Sheet>
+        <DoneSheet open={doneOpen} page={page} onClose={()=>setDoneOpen(false)} onSave={p=>{ const first=!page.done&&p.done; onChange({...p,updatedAt:Date.now()}); setDoneOpen(false); if(first&&onCompare) onCompare(); else showToast(p.done?"Saved":"Moved back to Up next"); }}/>
         <SB.Toast msg={toast}/>
         {colorMode && <ColoringMode page={page} version={cur} imgSrc={flatCanvas().toDataURL("image/jpeg",0.9)} history={history} stock={stock} onClose={()=>setColorMode(false)}/>}
       </div>
